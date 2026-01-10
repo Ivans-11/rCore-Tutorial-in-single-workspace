@@ -5,7 +5,18 @@
 #[macro_use]
 extern crate rcore_console;
 
-use sbi_rt::*;
+mod sbi;
+mod timer;
+
+#[cfg(feature = "nobios")]
+mod msbi;
+
+// nobios 模式下引入 M-Mode 入口汇编
+#[cfg(all(feature = "nobios", target_arch = "riscv64"))]
+core::arch::global_asm!(include_str!("m_entry_rv64.asm"));
+
+#[cfg(all(feature = "nobios", target_arch = "riscv32"))]
+core::arch::global_asm!(include_str!("m_entry_rv32.asm"));
 
 /// Supervisor 汇编入口。
 ///
@@ -34,13 +45,14 @@ unsafe extern "C" fn _start() -> ! {
 extern "C" fn rust_main() -> ! {
     // 初始化 `console`
     rcore_console::init_console(&Console);
+    // 设置时间戳函数
+    rcore_console::set_timestamp(timer::get_time_ms);
     // 设置日志级别
     rcore_console::set_log_level(option_env!("LOG"));
     // 测试各种打印
     rcore_console::test_log();
 
-    system_reset(Shutdown, NoReason);
-    unreachable!()
+    sbi::shutdown(false)
 }
 
 /// 将传给 `console` 的控制台对象。
@@ -51,8 +63,7 @@ struct Console;
 /// 为 `Console` 实现 `console::Console` trait。
 impl rcore_console::Console for Console {
     fn put_char(&self, c: u8) {
-        #[allow(deprecated)]
-        legacy::console_putchar(c as _);
+        sbi::console_putchar(c);
     }
 }
 
@@ -60,6 +71,5 @@ impl rcore_console::Console for Console {
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     println!("{info}");
-    system_reset(Shutdown, SystemFailure);
-    loop {}
+    sbi::shutdown(true)
 }

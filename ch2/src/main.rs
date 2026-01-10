@@ -5,12 +5,24 @@
 #[macro_use]
 extern crate rcore_console;
 
+mod sbi;
+mod timer;
+
+#[cfg(feature = "nobios")]
+mod msbi;
+
 use impls::{Console, SyscallContext};
 use kernel_context::LocalContext;
 use rcore_console::log;
 use riscv::register::*;
-use sbi_rt::*;
 use syscall::{Caller, SyscallId};
+
+// nobios 模式下引入 M-Mode 入口汇编
+#[cfg(all(feature = "nobios", target_arch = "riscv64"))]
+core::arch::global_asm!(include_str!("m_entry_rv64.asm"));
+
+#[cfg(all(feature = "nobios", target_arch = "riscv32"))]
+core::arch::global_asm!(include_str!("m_entry_rv32.asm"));
 
 // 用户程序内联进来。
 core::arch::global_asm!(include_str!(env!("APP_ASM")));
@@ -22,7 +34,11 @@ extern "C" fn rust_main() -> ! {
     unsafe { linker::KernelLayout::locate().zero_bss() };
     // 初始化 `console`
     rcore_console::init_console(&Console);
+    // 设置时间戳函数
+    rcore_console::set_timestamp(timer::get_time_ms);
+    // 设置日志级别
     rcore_console::set_log_level(option_env!("LOG"));
+    // 测试日志
     rcore_console::test_log();
     // 初始化 syscall
     syscall::init_io(&SyscallContext);
@@ -34,9 +50,10 @@ extern "C" fn rust_main() -> ! {
         // 初始化上下文
         let mut ctx = LocalContext::user(app_base);
         // 设置用户栈（使用 MaybeUninit 避免 release 模式下零初始化的问题）
-        let mut user_stack: core::mem::MaybeUninit<[usize; 256]> = core::mem::MaybeUninit::uninit();
+        let mut user_stack: core::mem::MaybeUninit<[usize; 512]> = core::mem::MaybeUninit::uninit();
         let user_stack_ptr = user_stack.as_mut_ptr() as *mut usize;
-        *ctx.sp_mut() = unsafe { user_stack_ptr.add(256) } as usize;
+        *ctx.sp_mut() = unsafe { user_stack_ptr.add(512) } as usize;
+        
         loop {
             unsafe { ctx.execute() };
 
@@ -61,16 +78,14 @@ extern "C" fn rust_main() -> ! {
         println!();
     }
 
-    system_reset(Shutdown, NoReason);
-    unreachable!()
+    sbi::shutdown(false)
 }
 
 /// Rust 异常处理函数，以异常方式关机。
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     println!("{info}");
-    system_reset(Shutdown, SystemFailure);
-    loop {}
+    sbi::shutdown(true)
 }
 
 enum SyscallResult {
@@ -107,8 +122,7 @@ mod impls {
     impl rcore_console::Console for Console {
         #[inline]
         fn put_char(&self, c: u8) {
-            #[allow(deprecated)]
-            sbi_rt::legacy::console_putchar(c as _);
+            crate::sbi::console_putchar(c);
         }
     }
 

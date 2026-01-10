@@ -31,10 +31,23 @@ pub trait Console: Sync {
 /// 库找到输出的方法：保存一个对象引用，这是一种单例。
 static CONSOLE: Once<&'static dyn Console> = Once::new();
 
+/// 时间戳获取函数类型，返回毫秒数。
+pub type GetTimeMsFn = fn() -> usize;
+
+/// 全局时间戳获取函数。
+static GET_TIME_MS: Once<GetTimeMsFn> = Once::new();
+
 /// 用户调用这个函数设置输出的方法。
 pub fn init_console(console: &'static dyn Console) {
     CONSOLE.call_once(|| console);
     log::set_logger(&Logger).unwrap();
+}
+
+/// 设置时间戳获取函数。
+///
+/// 函数应返回从启动开始的毫秒数。
+pub fn set_timestamp(f: GetTimeMsFn) {
+    GET_TIME_MS.call_once(|| f);
 }
 
 /// 根据环境变量设置日志级别。
@@ -62,6 +75,16 @@ pub fn test_log() {
     println!();
 }
 
+/// 打印时间戳前缀（如果已设置时间戳函数）。
+#[doc(hidden)]
+#[inline]
+pub fn _print_timestamp() {
+    if let Some(f) = GET_TIME_MS.get() {
+        let ms = f();
+        Logger.write_fmt(format_args!("[{:>8} ms] ", ms)).unwrap();
+    }
+}
+
 /// 打印。
 ///
 /// 给宏用的，用户不会直接调它。
@@ -84,6 +107,7 @@ macro_rules! print {
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => {{
+        $crate::_print_timestamp();
         $crate::_print(core::format_args!($($arg)*));
         $crate::println!();
     }}

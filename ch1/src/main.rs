@@ -2,6 +2,18 @@
 #![no_main]
 #![deny(warnings)]
 
+mod sbi;
+
+#[cfg(feature = "nobios")]
+mod msbi;
+
+// nobios 模式下引入 M-Mode 入口汇编
+#[cfg(all(feature = "nobios", target_arch = "riscv64"))]
+core::arch::global_asm!(include_str!("m_entry_rv64.asm"));
+
+#[cfg(all(feature = "nobios", target_arch = "riscv32"))]
+core::arch::global_asm!(include_str!("m_entry_rv32.asm"));
+
 /// Supervisor 汇编入口。
 ///
 /// 设置栈并跳转到 Rust。
@@ -27,19 +39,14 @@ unsafe extern "C" fn _start() -> ! {
 ///
 /// 打印 `Hello, World!`，然后关机。
 extern "C" fn rust_main() -> ! {
-    use sbi_rt::*;
-    for c in b"Hello, world!" {
-        #[allow(deprecated)]
-        legacy::console_putchar(*c as _);
+    for c in b"Hello, world!\n" {
+        sbi::console_putchar(*c);
     }
-    system_reset(Shutdown, NoReason);
-    unreachable!()
+    sbi::shutdown(false)
 }
 
 /// Rust 异常处理函数，以异常方式关机。
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
-    use sbi_rt::*;
-    system_reset(Shutdown, SystemFailure);
-    loop {}
+    sbi::shutdown(true)
 }

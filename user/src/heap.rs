@@ -20,6 +20,11 @@ pub fn init() {
 }
 
 type MutAllocator<const N: usize> = BuddyAllocator<N, UsizeBuddy, LinkedListBuddy>;
+// 16 KiB = 2^14, min_order = 2 (4 bytes), needs 14-2=12 layers
+// Use pointer width to determine max layers to avoid overflow on RV32
+#[cfg(target_pointer_width = "32")]
+static mut HEAP: MutAllocator<12> = MutAllocator::new();
+#[cfg(target_pointer_width = "64")]
 static mut HEAP: MutAllocator<32> = MutAllocator::new();
 
 struct Global;
