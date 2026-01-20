@@ -89,14 +89,19 @@ impl BuildArgs {
             _ => unreachable!(),
         };
         // 生成
+        let mut all_features = Vec::new();
+        if let Some(features) = &self.features {
+            all_features.extend(features.split_whitespace());
+        }
+        if self.nobios {
+            all_features.push("nobios");
+        }
+        
         let mut build = Cargo::build();
         build
             .package(&package)
-            .optional(&self.features, |cargo, features| {
-                cargo.features(false, features.split_whitespace());
-            })
-            .conditional(self.nobios, |cargo| {
-                cargo.features(false, ["nobios"]);
+            .conditional(!all_features.is_empty(), |cargo| {
+                cargo.features(false, all_features.iter().copied());
             })
             .optional(&self.log, |cargo, log| {
                 cargo.env("LOG", log);
