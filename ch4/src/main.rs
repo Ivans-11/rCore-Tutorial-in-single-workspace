@@ -23,7 +23,7 @@ use kernel_vm::{
 };
 use rcore_console::log;
 use riscv::register::*;
-use sbi_rt::*;
+use sbi;
 use syscall::Caller;
 use xmas_elf::ElfFile;
 
@@ -135,16 +135,14 @@ extern "C" fn schedule() -> ! {
             }
         }
     }
-    system_reset(Shutdown, NoReason);
-    unreachable!()
+    sbi::shutdown(false)
 }
 
 /// Rust 异常处理函数，以异常方式关机。
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     log::error!("{info}");
-    system_reset(Shutdown, SystemFailure);
-    loop {}
+    sbi::shutdown(true)
 }
 
 fn kernel_space(
@@ -272,8 +270,7 @@ mod impls {
     impl rcore_console::Console for Console {
         #[inline]
         fn put_char(&self, c: u8) {
-            #[allow(deprecated)]
-            sbi_rt::legacy::console_putchar(c as _);
+            sbi::console_putchar(c);
         }
     }
 

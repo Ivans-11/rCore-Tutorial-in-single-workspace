@@ -64,6 +64,9 @@ struct BuildArgs {
     /// build in release mode
     #[clap(long)]
     release: bool,
+    /// build for no-bios mode (kernel at 0x80000000)
+    #[clap(long)]
+    nobios: bool,
 }
 
 impl BuildArgs {
@@ -91,6 +94,9 @@ impl BuildArgs {
             .package(&package)
             .optional(&self.features, |cargo, features| {
                 cargo.features(false, features.split_whitespace());
+            })
+            .conditional(self.nobios, |cargo| {
+                cargo.features(false, ["nobios"]);
             })
             .optional(&self.log, |cargo, log| {
                 cargo.env("LOG", log);
@@ -153,10 +159,17 @@ impl QemuArgs {
         }
         let mut qemu = Qemu::system("riscv64");
         qemu.args(&["-machine", "virt"])
-            .arg("-nographic")
-            .arg("-bios")
-            .arg(PROJECT.join("rustsbi-qemu.bin"))
-            .arg("-kernel")
+            .arg("-nographic");
+
+        if self.build.nobios {
+            // No BIOS mode: kernel is loaded at 0x80000000
+            qemu.args(&["-bios", "none"]);
+        } else {
+            // SBI mode: use RustSBI, kernel is loaded at 0x80200000
+            qemu.arg("-bios").arg(PROJECT.join("rustsbi-qemu.bin"));
+        }
+
+        qemu.arg("-kernel")
             .arg(objcopy(elf, true))
             .args(&["-smp", &self.smp.unwrap_or(1).to_string()])
             .args(&["-m", "64M"])

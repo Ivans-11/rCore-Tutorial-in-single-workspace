@@ -23,7 +23,7 @@ use processor::{ProcManager, PROCESSOR};
 use rcore_console::log;
 use rcore_task_manage::ProcId;
 use riscv::register::*;
-use sbi_rt::*;
+use sbi;
 use spin::Lazy;
 use syscall::Caller;
 use xmas_elf::ElfFile;
@@ -128,16 +128,14 @@ extern "C" fn rust_main() -> ! {
             break;
         }
     }
-    system_reset(Shutdown, NoReason);
-    unreachable!()
+    sbi::shutdown(false)
 }
 
 /// Rust 异常处理函数，以异常方式关机。
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     println!("{info}");
-    system_reset(Shutdown, SystemFailure);
-    loop {}
+    sbi::shutdown(true)
 }
 
 fn kernel_space(layout: linker::KernelLayout, memory: usize, portal: usize) {
@@ -265,8 +263,7 @@ mod impls {
     impl rcore_console::Console for Console {
         #[inline]
         fn put_char(&self, c: u8) {
-            #[allow(deprecated)]
-            sbi_rt::legacy::console_putchar(c as _);
+            sbi::console_putchar(c);
         }
     }
 
@@ -311,8 +308,7 @@ mod impls {
                 {
                     let mut ptr = unsafe { ptr.as_mut() } as *mut u8;
                     for _ in 0..count {
-                        #[allow(deprecated)]
-                        let c = sbi_rt::legacy::console_getchar() as u8;
+                        let c = sbi::console_getchar() as u8;
                         unsafe {
                             *ptr = c;
                             ptr = ptr.add(1);
