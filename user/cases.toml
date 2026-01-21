@@ -1,4 +1,4 @@
-﻿[ch2]
+[ch2]
 base = 0x8040_0000
 step = 0
 cases = [
@@ -121,4 +121,26 @@ cases = [
     "sync_sem",
     "race_adder_mutex_blocking",
     "test_condvar",
+]
+
+[ch3_exercise]
+base = 0x8040_0000
+step = 0x0020_0000
+cases = [
+]
+
+[ch4_exercise]
+cases = [
+]
+
+[ch5_exercise]
+cases = [
+]
+
+[ch6_exercise]
+cases = [
+]
+
+[ch8_exercise]
+cases = [
 ]

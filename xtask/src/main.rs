@@ -55,6 +55,9 @@ struct BuildArgs {
     /// lab or not
     #[clap(long)]
     lab: bool,
+    /// exercise mode (load exercise test cases)
+    #[clap(long)]
+    exercise: bool,
     /// features
     #[clap(short, long)]
     features: Option<String>,
@@ -75,7 +78,7 @@ impl BuildArgs {
         let package = match self.ch {
             1 => if self.lab { "ch1-lab" } else { "ch1" }.to_string(),
             2..=8 => {
-                user::build_for(self.ch, false);
+                user::build_for(self.ch, false, self.exercise);
                 env.insert(
                     "APP_ASM",
                     TARGET

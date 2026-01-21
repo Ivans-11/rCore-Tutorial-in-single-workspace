@@ -69,11 +69,16 @@ fn build_one(name: impl AsRef<OsStr>, release: bool, base_address: u64) -> PathB
     }
 }
 
-pub fn build_for(ch: u8, release: bool) {
+pub fn build_for(ch: u8, release: bool, exercise: bool) {
     let cfg = std::fs::read_to_string(PROJECT.join("user/cases.toml")).unwrap();
+    let key = if exercise {
+        format!("ch{ch}_exercise")
+    } else {
+        format!("ch{ch}")
+    };
     let mut cases = toml::from_str::<HashMap<String, Cases>>(&cfg)
         .unwrap()
-        .remove(&format!("ch{ch}"))
+        .remove(&key)
         .unwrap_or_default();
     let CasesInfo { base, step, bins } = cases.build(release);
     if bins.is_empty() {
