@@ -32,6 +32,7 @@ extern "C" fn rust_main() -> ! {
     syscall::init_process(&SyscallContext);
     syscall::init_scheduling(&SyscallContext);
     syscall::init_clock(&SyscallContext);
+    syscall::init_trace(&SyscallContext);
     // 任务控制块
     let mut tcbs = [TaskControlBlock::ZERO; APP_CAPACITY];
     let mut index_mod = 0;
@@ -173,6 +174,15 @@ mod impls {
                 }
                 _ => -1,
             }
+        }
+    }
+
+    impl Trace for SyscallContext {
+        // TODO: 实现 trace 系统调用
+        #[inline]
+        fn trace(&self, _caller: syscall::Caller, _trace_request: usize, _id: usize, _data: usize) -> isize {
+            rcore_console::log::info!("trace: not implemented");
+            -1
         }
     }
 }

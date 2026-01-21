@@ -317,6 +317,8 @@
 #define __NR_condvar_signal 1031
 #define __NR_condvar_wait 1032
 
+#define __NR_trace 410
+
 
 // #define __NR_sysriscv __NR_arch_specific_syscall
 // #define __NR_riscv_flush_icache (__NR_sysriscv + 15)

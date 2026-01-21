@@ -138,6 +138,12 @@ pub trait SyncMutex: Sync {
     }
 }
 
+pub trait Trace: Sync {
+    fn trace(&self, caller: Caller, trace_request: usize, id: usize, data: usize) -> isize {
+        unimplemented!()
+    }
+}
+
 static PROCESS: Container<dyn Process> = Container::new();
 static IO: Container<dyn IO> = Container::new();
 static MEMORY: Container<dyn Memory> = Container::new();
@@ -146,6 +152,7 @@ static CLOCK: Container<dyn Clock> = Container::new();
 static SIGNAL: Container<dyn Signal> = Container::new();
 static THREAD: Container<dyn Thread> = Container::new();
 static SYNC_MUTEX: Container<dyn SyncMutex> = Container::new();
+static TRACE: Container<dyn Trace> = Container::new();
 
 #[inline]
 pub fn init_process(process: &'static dyn Process) {
@@ -185,6 +192,11 @@ pub fn init_thread(thread: &'static dyn Thread) {
 #[inline]
 pub fn init_sync_mutex(sync_mutex: &'static dyn SyncMutex) {
     SYNC_MUTEX.init(sync_mutex);
+}
+
+#[inline]
+pub fn init_trace(trace: &'static dyn Trace) {
+    TRACE.init(trace);
 }
 
 pub enum SyscallResult {
@@ -249,6 +261,7 @@ pub fn handle(caller: Caller, id: SyscallId, args: [usize; 6]) -> SyscallResult 
         Id::CONDVAR_WAIT => SYNC_MUTEX.call(id, |sync_mutex| {
             sync_mutex.condvar_wait(caller, args[0], args[1])
         }),
+        Id::TRACE => TRACE.call(id, |trace| trace.trace(caller, args[0], args[1], args[2])),
         _ => SyscallResult::Unsupported(id),
     }
 }

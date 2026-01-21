@@ -189,6 +189,31 @@ pub fn condvar_wait(condvar_id: usize, mutex_id: usize) -> isize {
     unsafe { syscall2(SyscallId::CONDVAR_WAIT, condvar_id, mutex_id) }
 }
 
+#[inline]
+pub fn trace(trace_request: usize, id: usize, data: usize) -> isize {
+    unsafe { syscall3(SyscallId::TRACE, trace_request, id, data) }
+}
+
+#[inline]
+pub fn trace_read(ptr: *const u8) -> Option<u8> {
+    let ret = trace(0, ptr as usize, 0);
+    if ret >= 0 && ret <= 255 {
+        Some(ret as u8)
+    } else {
+        None
+    }
+}
+
+#[inline]
+pub fn trace_write(ptr: *const u8, value: u8) -> isize {
+    trace(1, ptr as usize, value as usize)
+}
+
+#[inline]
+pub fn count_syscall(syscall_id: usize) -> isize {
+    trace(2, syscall_id, 0)
+}
+
 /// 这个模块包含调用系统调用的最小封装，用户可以直接使用这些函数调用自定义的系统调用。
 pub mod native {
     use crate::SyscallId;
