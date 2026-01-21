@@ -415,11 +415,20 @@ impl DirEntry {
         }
     }
     /// Serialize into bytes
+    ///
+    /// 将目录项序列化为字节切片，用于写入磁盘。
     pub fn as_bytes(&self) -> &[u8] {
+        // SAFETY: DirEntry 是 #[repr(C)] 的 POD 类型，可以安全地转换为字节切片。
+        // DIRENT_SZ 与 DirEntry 的大小相等（由 const 定义保证）。
         unsafe { core::slice::from_raw_parts(self as *const _ as usize as *const u8, DIRENT_SZ) }
     }
+
     /// Serialize into mutable bytes
+    ///
+    /// 将目录项序列化为可变字节切片，用于从磁盘读取数据。
     pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        // SAFETY: DirEntry 是 #[repr(C)] 的 POD 类型，可以安全地转换为可变字节切片。
+        // DIRENT_SZ 与 DirEntry 的大小相等（由 const 定义保证）。
         unsafe { core::slice::from_raw_parts_mut(self as *mut _ as usize as *mut u8, DIRENT_SZ) }
     }
     /// Get name of the entry

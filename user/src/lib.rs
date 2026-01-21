@@ -21,6 +21,7 @@ pub extern "C" fn _start() -> ! {
         fn main() -> i32;
     }
 
+    // SAFETY: main 函数由用户程序提供，链接器保证其存在且符合 C ABI
     exit(unsafe { main() });
     unreachable!()
 }

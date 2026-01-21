@@ -31,6 +31,11 @@ impl BlockCache {
         &self.cache[offset] as *const _ as usize
     }
 
+    /// 获取缓存块中指定偏移处的类型引用。
+    ///
+    /// # Panics
+    ///
+    /// 如果 `offset + size_of::<T>() > BLOCK_SZ` 则会 panic。
     pub fn get_ref<T>(&self, offset: usize) -> &T
     where
         T: Sized,
@@ -38,9 +43,16 @@ impl BlockCache {
         let type_size = core::mem::size_of::<T>();
         assert!(offset + type_size <= BLOCK_SZ);
         let addr = self.addr_of_offset(offset);
+        // SAFETY: 上面的 assert 保证了 [offset, offset + type_size) 在缓存块范围内。
+        // 调用者需要确保 T 的对齐要求得到满足，以及数据确实是有效的 T 类型。
         unsafe { &*(addr as *const T) }
     }
 
+    /// 获取缓存块中指定偏移处的可变类型引用。
+    ///
+    /// # Panics
+    ///
+    /// 如果 `offset + size_of::<T>() > BLOCK_SZ` 则会 panic。
     pub fn get_mut<T>(&mut self, offset: usize) -> &mut T
     where
         T: Sized,
@@ -49,6 +61,8 @@ impl BlockCache {
         assert!(offset + type_size <= BLOCK_SZ);
         self.modified = true;
         let addr = self.addr_of_offset(offset);
+        // SAFETY: 上面的 assert 保证了 [offset, offset + type_size) 在缓存块范围内。
+        // 调用者需要确保 T 的对齐要求得到满足，以及数据确实是有效的 T 类型。
         unsafe { &mut *(addr as *mut T) }
     }
 

@@ -1,9 +1,8 @@
-//! 字符数组。可取并集和差集，也可对给定的 mask 取首位
-//!
+//! 信号集合。可取并集和差集，也可对给定的 mask 取首位。
 
 #[derive(Clone, Copy, Debug)]
-/// bit数组
-pub struct SignalSet(pub usize);
+/// 信号位数组，用于表示信号集合。
+pub(crate) struct SignalSet(pub(crate) usize);
 
 impl SignalSet {
     /// 新建一个空的数组

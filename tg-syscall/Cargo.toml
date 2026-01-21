@@ -14,7 +14,7 @@ categories = ["no-std", "embedded"]
 [dependencies]
 spin = "0.9"
 bitflags = "1.2"
-tg-signal-defs = { path = "../tg-signal-defs" }
+tg-signal-defs = { path = "../tg-signal-defs", version = "0.1" }
 
 [features]
 kernel = []

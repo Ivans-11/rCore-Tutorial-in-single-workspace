@@ -1,6 +1,9 @@
-//! 一种信号模块的实现
+//! 信号模块的具体实现。
+//!
+//! 本模块实现了 [`tg_signal::Signal`] trait，提供完整的信号处理功能。
 
 #![no_std]
+#![deny(warnings, missing_docs)]
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -12,10 +15,12 @@ use default_action::DefaultAction;
 mod signal_set;
 use signal_set::SignalSet;
 
-/// 正在处理的信号
+/// 正在处理的信号状态。
 pub enum HandlingSignal {
-    Frozen,                   // 是内核信号，需要暂停当前进程
-    UserSignal(LocalContext), // 是用户信号，需要保存之前的用户栈
+    /// 进程被冻结（收到 SIGSTOP 等信号），需要暂停当前进程
+    Frozen,
+    /// 正在处理用户信号，保存了之前的用户上下文
+    UserSignal(LocalContext),
 }
 
 /// 管理一个进程中的信号
@@ -31,6 +36,7 @@ pub struct SignalImpl {
 }
 
 impl SignalImpl {
+    /// 创建一个新的信号管理器。
     pub fn new() -> Self {
         Self {
             received: SignalSet::empty(),
@@ -38,6 +44,12 @@ impl SignalImpl {
             handling: None,
             actions: [None; MAX_SIG + 1],
         }
+    }
+}
+
+impl Default for SignalImpl {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

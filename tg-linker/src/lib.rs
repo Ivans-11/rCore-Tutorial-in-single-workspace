@@ -71,9 +71,24 @@ SECTIONS {
 /// 定义内核入口。
 ///
 /// 将设置一个启动栈，并在启动栈上调用高级语言入口。
+///
+/// # Safety
+///
+/// 此宏生成的 `_start` 函数是一个裸函数，作为内核的入口点。
+/// 它会：
+/// - 设置栈指针到 `__end`（由链接脚本定义）
+/// - 跳转到指定的入口函数
+///
+/// 调用者需要确保链接脚本正确定义了相关符号。
 #[macro_export]
 macro_rules! boot0 {
     ($entry:ident; stack = $stack:expr) => {
+        /// 内核入口点。
+        ///
+        /// # Safety
+        ///
+        /// 这是一个裸函数，由 bootloader 直接调用。
+        /// 调用时 CPU 处于 M 模式或 S 模式，需要正确设置栈指针后才能执行 Rust 代码。
         #[unsafe(naked)]
         #[no_mangle]
         #[link_section = ".text.entry"]
@@ -81,6 +96,8 @@ macro_rules! boot0 {
             #[link_section = ".boot.stack"]
             static mut STACK: [u8; $stack] = [0u8; $stack];
 
+            // SAFETY: 设置栈指针并跳转到高级语言入口。
+            // __end 由链接脚本定义，指向启动栈的末尾。
             core::arch::naked_asm!(
                 "la sp, __end",
                 "j  {main}",
@@ -157,12 +174,20 @@ impl KernelLayout {
     }
 
     /// 清零 .bss 段。
+    ///
+    /// # Safety
+    ///
+    /// 调用者必须确保：
+    /// - 此函数在访问任何 .bss 段中的静态变量之前调用
+    /// - .bss 段的地址范围（`sbss` 到 `ebss`）是有效的
+    /// - 此函数只被调用一次
     #[inline]
     pub unsafe fn zero_bss(&self) {
         let mut ptr = self.sbss as *mut u8;
         let end = self.ebss as *mut u8;
         while ptr < end {
-            // **NOTICE** 单核其实无所谓，多核必须 volatile write 其他核才能看见
+            // SAFETY: ptr 在 [sbss, ebss) 范围内，这是有效的 .bss 段内存。
+            // 使用 volatile write 确保多核场景下其他核能看到写入。
             ptr.write_volatile(0);
             ptr = ptr.offset(1);
         }

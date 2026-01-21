@@ -16,13 +16,18 @@ impl UserBuffer {
     pub fn new(buffers: Vec<&'static mut [u8]>) -> Self {
         Self { buffers }
     }
-    ///Length of `UserBuffer`
+    /// 获取 `UserBuffer` 的总长度。
     pub fn len(&self) -> usize {
         let mut total: usize = 0;
         for b in self.buffers.iter() {
             total += b.len();
         }
         total
+    }
+
+    /// 检查 `UserBuffer` 是否为空。
+    pub fn is_empty(&self) -> bool {
+        self.buffers.is_empty()
     }
 }
 
@@ -73,6 +78,7 @@ pub struct FileHandle {
 }
 
 impl FileHandle {
+    /// 创建一个新的文件句柄。
     pub fn new(read: bool, write: bool, inode: Arc<Inode>) -> Self {
         Self {
             inode: Some(inode),
@@ -82,6 +88,7 @@ impl FileHandle {
         }
     }
 
+    /// 创建一个空的文件句柄（无 inode）。
     pub fn empty(read: bool, write: bool) -> Self {
         Self {
             inode: None,
@@ -90,17 +97,18 @@ impl FileHandle {
             offset: 0,
         }
     }
-}
 
-impl FileHandle {
+    /// 是否可读。
     pub fn readable(&self) -> bool {
         self.read
     }
 
+    /// 是否可写。
     pub fn writable(&self) -> bool {
         self.write
     }
 
+    /// 从文件读取数据到用户缓冲区。
     pub fn read(&mut self, mut buf: UserBuffer) -> isize {
         let mut total_read_size: usize = 0;
         if let Some(inode) = &self.inode {
@@ -118,6 +126,7 @@ impl FileHandle {
         }
     }
 
+    /// 将用户缓冲区数据写入文件。
     pub fn write(&mut self, buf: UserBuffer) -> isize {
         let mut total_write_size: usize = 0;
         if let Some(inode) = &self.inode {
@@ -134,19 +143,20 @@ impl FileHandle {
     }
 }
 
+/// 文件系统管理器 trait。
 pub trait FSManager {
-    /// Open a file
+    /// 打开文件。
     fn open(&self, path: &str, flags: OpenFlags) -> Option<Arc<FileHandle>>;
 
-    /// Find a file
+    /// 查找文件。
     fn find(&self, path: &str) -> Option<Arc<Inode>>;
 
-    /// Create a hard link to source file
+    /// 创建硬链接。
     fn link(&self, src: &str, dst: &str) -> isize;
 
-    /// Remove a hard link
+    /// 删除硬链接。
     fn unlink(&self, path: &str) -> isize;
 
-    /// List inodes under the target directory
+    /// 列出目录内容。
     fn readdir(&self, path: &str) -> Option<Vec<String>>;
 }

@@ -41,8 +41,17 @@ impl PortalCache {
 /// 用于将线程传送到另一个地址空间上执行的基础设施。
 pub trait ForeignPortal {
     /// 映射到公共地址空间的代码入口。
+    ///
+    /// # Safety
+    ///
+    /// 调用者必须确保传送门已正确初始化且映射到公共地址空间。
     unsafe fn transit_entry(&self) -> usize;
+
     /// 映射到公共地址空间的 `key` 号传送门缓存。
+    ///
+    /// # Safety
+    ///
+    /// 调用者必须确保 `key` 对应的插槽已分配且有效。
     unsafe fn transit_cache(&mut self, key: impl SlotKey) -> &mut PortalCache;
 }
 
@@ -66,11 +75,14 @@ pub trait MonoForeignPortal {
 impl<T: MonoForeignPortal> ForeignPortal for T {
     #[inline]
     unsafe fn transit_entry(&self) -> usize {
+        // SAFETY: 由 MonoForeignPortal 的实现者保证 transit_address 和 text_offset 的正确性
         self.transit_address() + self.text_offset()
     }
 
     #[inline]
     unsafe fn transit_cache(&mut self, key: impl SlotKey) -> &mut PortalCache {
+        // SAFETY: 由调用者保证 key 对应的插槽已分配，
+        // cache_offset 返回的偏移量指向有效的 PortalCache 结构
         &mut *((self.transit_address() + self.cache_offset(key.index())) as *mut _)
     }
 }
@@ -87,6 +99,14 @@ pub struct ForeignContext {
 
 impl ForeignContext {
     /// 执行异界线程。
+    ///
+    /// # Safety
+    ///
+    /// 调用者必须确保：
+    /// - `portal` 已正确初始化且映射到公共地址空间
+    /// - `key` 对应的插槽已分配
+    /// - `self.satp` 指向有效的页表
+    /// - `self.context` 中的 `sepc` 指向有效的代码地址
     pub unsafe fn execute(&mut self, portal: &mut impl ForeignPortal, key: impl SlotKey) -> usize {
         use core::mem::replace;
         // 异界传送门需要特权态执行
@@ -144,6 +164,7 @@ impl SlotKey for TpReg {
     #[inline]
     fn index(self) -> usize {
         let ans: usize;
+        // SAFETY: 只是读取 tp 寄存器的值，不会产生副作用
         unsafe { core::arch::asm!("mv {}, tp", out(reg) ans) };
         ans
     }
@@ -162,6 +183,8 @@ impl PortalText {
     pub fn new() -> Self {
         // 32 是一个任取的不可能的下限
         for len in 32.. {
+            // SAFETY: foreign_execute 是一个有效的函数指针，
+            // 我们通过查找结尾标记 [0x8502, 0] 来确定代码段的实际长度
             let slice = unsafe { core::slice::from_raw_parts(foreign_execute as *const _, len) };
             // 裸函数的 `options(noreturn)` 会在结尾生成一个 0 指令，这是一个 unstable 特性所以不一定可靠
             if slice.ends_with(&[0x8502, 0]) {
@@ -177,14 +200,31 @@ impl PortalText {
         (self.0.len() * core::mem::size_of::<u16>() + USIZE_MASK) & !USIZE_MASK
     }
 
+    /// 将传送门代码拷贝到指定地址。
+    ///
+    /// # Safety
+    ///
+    /// 调用者必须确保 `address` 指向的内存区域：
+    /// - 已分配且可写
+    /// - 大小至少为 `aligned_size()` 字节
+    /// - 与源数据不重叠
     #[inline]
     pub unsafe fn copy_to(&self, address: usize) {
+        // SAFETY: 由调用者保证目标地址有效且不重叠
         (address as *mut u16).copy_from_nonoverlapping(self.0.as_ptr(), self.0.len());
     }
 }
 
 /// 切换地址空间然后 sret。
 /// 地址空间恢复后一切都会恢复原状。
+///
+/// # Safety
+///
+/// 这是一个裸函数，只能由 `ForeignContext::execute()` 通过 `LocalContext::execute()` 间接调用。
+/// 调用前必须确保：
+/// - `ctx` 指向有效的 `PortalCache` 结构
+/// - `PortalCache` 中的 `satp`、`sepc`、`sstatus` 已正确初始化
+/// - 此函数的代码已被拷贝到公共地址空间
 #[unsafe(naked)]
 unsafe extern "C" fn foreign_execute(ctx: *mut PortalCache) {
     core::arch::naked_asm!(

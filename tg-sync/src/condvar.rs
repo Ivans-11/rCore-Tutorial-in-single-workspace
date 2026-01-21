@@ -15,9 +15,10 @@ pub struct CondvarInner {
 }
 
 impl Condvar {
-    /// new
+    /// 创建一个新的条件变量。
     pub fn new() -> Self {
         Self {
+            // SAFETY: 此条件变量仅在单处理器内核环境中使用
             inner: unsafe {
                 UPIntrFreeCell::new(CondvarInner {
                     wait_queue: VecDeque::new(),

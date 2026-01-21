@@ -1,4 +1,12 @@
+//! 信号定义模块。
+//!
+//! 本模块定义了 POSIX 信号相关的常量和类型，包括：
+//! - [`SignalNo`] - 信号编号枚举
+//! - [`SignalAction`] - 信号处理函数定义
+//! - [`MAX_SIG`] - 最大信号编号
+
 #![no_std]
+#![deny(warnings, missing_docs)]
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]

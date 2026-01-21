@@ -36,6 +36,8 @@ impl<Meta: VmMeta, M: PageManager<Meta>> AddressSpace<Meta, M> {
     /// 地址空间根页表
     #[inline]
     pub fn root(&self) -> PageTable<Meta> {
+        // SAFETY: page_manager.root_ptr() 返回的是有效的根页表指针，
+        // 由 PageManager::new_root() 创建时保证其有效性
         unsafe { PageTable::from_root(self.page_manager.root_ptr()) }
     }
 
@@ -64,6 +66,9 @@ impl<Meta: VmMeta, M: PageManager<Meta>> AddressSpace<Meta, M> {
         let size = count << Meta::PAGE_BITS;
         assert!(size >= data.len() + offset);
         let page = self.page_manager.allocate(count, &mut flags);
+        // SAFETY: page 是刚分配的有效内存，大小为 size 字节。
+        // 我们按顺序填充：[0, offset) 清零，[offset, offset+data.len()) 拷贝数据，
+        // [offset+data.len(), size) 清零。
         unsafe {
             use core::slice::from_raw_parts_mut as slice;
             let mut ptr = page.as_ptr();
@@ -83,14 +88,20 @@ impl<Meta: VmMeta, M: PageManager<Meta>> AddressSpace<Meta, M> {
         visitor
             .ans()
             .filter(|pte| pte.flags().contains(flags))
-            .map(|pte| unsafe {
-                NonNull::new_unchecked(
-                    self.page_manager
-                        .p_to_v::<u8>(pte.ppn())
-                        .as_ptr()
-                        .add(addr.offset())
-                        .cast(),
-                )
+            .map(|pte| {
+                // SAFETY: pte 是有效的页表项，ppn 对应有效的物理页。
+                // p_to_v 返回当前地址空间中的有效指针。
+                // add(addr.offset()) 计算页内偏移，不会越界（offset < PAGE_SIZE）。
+                // 使用 new_unchecked 是因为 p_to_v 返回的是 NonNull，不可能为空。
+                unsafe {
+                    NonNull::new_unchecked(
+                        self.page_manager
+                            .p_to_v::<u8>(pte.ppn())
+                            .as_ptr()
+                            .add(addr.offset())
+                            .cast(),
+                    )
+                }
             })
     }
 
@@ -109,6 +120,7 @@ impl<Meta: VmMeta, M: PageManager<Meta>> AddressSpace<Meta, M> {
                 .ans()
                 .filter(|pte| pte.is_valid())
                 .map(|pte| {
+                    // SAFETY: pte 是有效的页表项，p_to_v 返回有效的指针
                     (pte.flags(), unsafe {
                         NonNull::new_unchecked(self.page_manager.p_to_v::<u8>(pte.ppn()).as_ptr())
                     })
@@ -121,6 +133,8 @@ impl<Meta: VmMeta, M: PageManager<Meta>> AddressSpace<Meta, M> {
             // 分配 count 个 flags 属性的物理页面
             let paddr = new_addrspace.page_manager.allocate(count, &mut flags);
             let ppn = new_addrspace.page_manager.v_to_p(paddr);
+            // SAFETY: data_ptr 指向源地址空间中 size 字节的有效数据，
+            // paddr 指向新分配的 size 字节内存，两者不重叠
             unsafe {
                 use core::slice::from_raw_parts_mut as slice;
                 let data = slice(data_ptr.as_mut(), size);

@@ -22,9 +22,10 @@ pub struct MutexBlockingInner {
 }
 
 impl MutexBlocking {
-    /// new
+    /// 创建一个新的阻塞互斥锁。
     pub fn new() -> Self {
         Self {
+            // SAFETY: 此互斥锁仅在单处理器内核环境中使用
             inner: unsafe {
                 UPIntrFreeCell::new(MutexBlockingInner {
                     locked: false,

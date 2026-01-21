@@ -129,6 +129,10 @@ impl LocalContext {
     /// # Safety
     ///
     /// 将修改 `sscratch`、`sepc`、`sstatus` 和 `stvec`。
+    /// 调用者需要确保：
+    /// - 当前处于 S 模式
+    /// - `stvec` 可以被安全地修改
+    /// - 上下文中的 `sepc` 指向有效的代码地址
     #[inline(never)]
     pub unsafe fn execute(&mut self) -> usize {
         let mut sstatus = build_sstatus(self.supervisor, self.interrupt);
@@ -136,6 +140,7 @@ impl LocalContext {
         let ctx_ptr = self as *mut Self;
         let mut sepc = self.sepc;
         let old_sscratch: usize;
+        // SAFETY: 内联汇编执行上下文切换，调用者已确保处于 S 模式且 CSR 可被修改
         core::arch::asm!(
             "   csrrw {old_ss}, sscratch, {ctx}
                 csrw  sepc    , {sepc}
@@ -164,7 +169,7 @@ impl LocalContext {
 #[inline]
 fn build_sstatus(supervisor: bool, interrupt: bool) -> usize {
     let mut sstatus: usize;
-    // 只是读 sstatus，安全的
+    // SAFETY: 只是读取 sstatus CSR，不会产生副作用
     unsafe { core::arch::asm!("csrr {}, sstatus", out(reg) sstatus) };
     const PREVILEGE_BIT: usize = 1 << 8;
     const INTERRUPT_BIT: usize = 1 << 5;
@@ -185,7 +190,11 @@ fn build_sstatus(supervisor: bool, interrupt: bool) -> usize {
 ///
 /// # Safety
 ///
-/// 裸函数。
+/// 这是一个裸函数，只能由 `LocalContext::execute()` 调用。
+/// 调用前必须确保：
+/// - `sscratch` 中存放了有效的 `LocalContext` 指针
+/// - `sepc` 和 `sstatus` 已正确设置
+/// - 栈指针有效且有足够空间保存寄存器
 #[unsafe(naked)]
 unsafe extern "C" fn execute_naked() {
     core::arch::naked_asm!(

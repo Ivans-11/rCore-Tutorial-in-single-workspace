@@ -1,10 +1,10 @@
-//! 信号的管理和处理模块
+//! 信号的管理和处理模块。
 //!
-//! 信号模块的实际实现见 `signal_impl` 子模块
-//!
-//!
+//! 本模块定义了信号处理的核心 trait [`Signal`]，
+//! 信号模块的实际实现见 `tg-signal-impl` crate。
 
 #![no_std]
+#![deny(warnings, missing_docs)]
 
 extern crate alloc;
 use alloc::boxed::Box;

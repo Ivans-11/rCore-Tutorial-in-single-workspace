@@ -1,6 +1,10 @@
-//!An easy file system isolated from the kernel
+//! 一个简单的文件系统实现。
+//!
+//! 本模块提供了一个独立于内核的简易文件系统（EasyFS），
+//! 用于 rCore 教学操作系统。
+
 #![no_std]
-// #![deny(missing_docs)]
+#![deny(warnings, missing_docs)]
 extern crate alloc;
 mod bitmap;
 mod block_cache;

@@ -1,4 +1,4 @@
-﻿use super::{MonoForeignPortal, PortalCache, PORTAL_TEXT};
+use super::{MonoForeignPortal, PortalCache, PORTAL_TEXT};
 
 /// 包含多个插槽的异界传送门。
 #[repr(C)]
@@ -24,13 +24,18 @@ impl MultislotPortal {
     ///
     /// # Safety
     ///
-    /// `transit` 必须是一个正确映射到公共地址空间上的地址。
+    /// 调用者必须确保：
+    /// - `transit` 是一个正确映射到公共地址空间上的地址
+    /// - `transit` 指向的内存区域大小至少为 `calculate_size(slots)` 字节
+    /// - `transit` 地址满足 `usize` 对齐要求
+    /// - 该内存区域具有读、写、执行权限
     pub unsafe fn init_transit(transit: usize, slots: usize) -> &'static mut Self {
         // 判断 transit 满足对齐要求
         debug_assert!(transit.trailing_zeros() > sizeof!(usize).trailing_zeros());
-        // 拷贝代码
+        // SAFETY: 由调用者保证 transit 指向足够大小的有效内存
         PORTAL_TEXT.copy_to(transit + sizeof!(Self));
-        // 填写元数据
+        // SAFETY: 由调用者保证 transit 对齐且指向有效内存，
+        // 返回 'static 生命周期是因为传送门在整个内核运行期间都有效
         let ans = &mut *(transit as *mut Self);
         ans.slot_count = slots;
         ans.text_size = PORTAL_TEXT.aligned_size();

@@ -33,20 +33,36 @@ impl<T> UPSafeCell<T> {
 }
 */
 
-/// interior mutability
+/// 单处理器环境下的内部可变性容器（原始版本）。
+///
+/// 这个类型绕过了 Rust 的借用检查，仅适用于单处理器环境。
 pub struct UPSafeCellRaw<T> {
     inner: UnsafeCell<T>,
 }
 
+// SAFETY: 此类型仅用于单处理器环境，不会发生数据竞争。
+// 使用者需要确保不会在单处理器上产生重入问题。
 unsafe impl<T> Sync for UPSafeCellRaw<T> {}
 
 impl<T> UPSafeCellRaw<T> {
+    /// 创建一个新的 `UPSafeCellRaw`。
+    ///
+    /// # Safety
+    ///
+    /// 调用者必须确保此类型仅在单处理器环境下使用，
+    /// 且不会在持有可变引用时发生重入。
     pub unsafe fn new(value: T) -> Self {
         Self {
             inner: UnsafeCell::new(value),
         }
     }
+
+    /// 获取内部值的可变引用。
+    ///
+    /// 注意：此函数不进行借用检查，调用者需要确保不会产生多个可变引用。
     pub fn get_mut(&self) -> &mut T {
+        // SAFETY: 单处理器环境下，只要调用者确保不重入，就不会产生数据竞争。
+        // 此函数的安全性由 UPSafeCellRaw::new 的 unsafe 约定保证。
         unsafe { &mut (*self.inner.get()) }
     }
 }
@@ -57,8 +73,14 @@ pub struct IntrMaskingInfo {
     sie_before_masking: bool,
 }
 
+/// 全局中断屏蔽信息。
+///
+/// SAFETY: 此静态变量仅在单处理器内核中使用，通过中断屏蔽保证访问安全。
 pub static INTR_MASKING_INFO: Lazy<UPSafeCellRaw<IntrMaskingInfo>> =
-    Lazy::new(|| unsafe { UPSafeCellRaw::new(IntrMaskingInfo::new()) });
+    Lazy::new(|| {
+        // SAFETY: 内核运行在单处理器环境下
+        unsafe { UPSafeCellRaw::new(IntrMaskingInfo::new()) }
+    });
 
 impl IntrMaskingInfo {
     pub fn new() -> Self {
@@ -68,8 +90,10 @@ impl IntrMaskingInfo {
         }
     }
 
+    /// 进入中断屏蔽区域。
     pub fn enter(&mut self) {
         let sie = sstatus::read().sie();
+        // SAFETY: 清除 sstatus.SIE 位以禁用中断，这是单处理器同步的标准做法
         unsafe {
             sstatus::clear_sie();
         }
@@ -79,9 +103,11 @@ impl IntrMaskingInfo {
         self.nested_level += 1;
     }
 
+    /// 退出中断屏蔽区域。
     pub fn exit(&mut self) {
         self.nested_level -= 1;
         if self.nested_level == 0 && self.sie_before_masking {
+            // SAFETY: 恢复 sstatus.SIE 位以重新启用中断
             unsafe {
                 sstatus::set_sie();
             }
@@ -89,19 +115,27 @@ impl IntrMaskingInfo {
     }
 }
 
-/// A mutable memory location with dynamically checked borrow rules
+/// 带中断屏蔽的内部可变性容器。
+///
+/// 在访问内部数据时自动禁用中断，保证单处理器环境下的数据安全。
 pub struct UPIntrFreeCell<T> {
     /// inner data
     inner: RefCell<T>,
 }
 
+// SAFETY: 此类型通过中断屏蔽保证单处理器环境下不会发生数据竞争。
+// RefCell 的动态借用检查会在运行时捕获重入错误。
 unsafe impl<T> Sync for UPIntrFreeCell<T> {}
 
 /// A wrapper type for a mutably borrowed value from a RefCell<T>
 pub struct UPIntrRefMut<'a, T>(Option<RefMut<'a, T>>);
 
 impl<T> UPIntrFreeCell<T> {
+    /// 创建一个新的 `UPIntrFreeCell`。
     ///
+    /// # Safety
+    ///
+    /// 调用者必须确保此类型仅在单处理器环境下使用。
     pub unsafe fn new(value: T) -> Self {
         Self {
             inner: RefCell::new(value),

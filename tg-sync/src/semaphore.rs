@@ -15,9 +15,10 @@ pub struct SemaphoreInner {
 }
 
 impl Semaphore {
-    /// new
+    /// 创建一个新的信号量，初始资源计数为 `res_count`。
     pub fn new(res_count: usize) -> Self {
         Self {
+            // SAFETY: 此信号量仅在单处理器内核环境中使用
             inner: unsafe {
                 UPIntrFreeCell::new(SemaphoreInner {
                     count: res_count as isize,

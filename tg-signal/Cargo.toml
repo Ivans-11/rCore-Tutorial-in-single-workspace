@@ -12,5 +12,5 @@ keywords = ["rcore", "signal", "no-std", "riscv"]
 categories = ["no-std", "embedded"]
 
 [dependencies]
-tg-kernel-context = { path = "../tg-kernel-context" }
-tg-signal-defs = { path = "../tg-signal-defs" }
+tg-kernel-context = { path = "../tg-kernel-context", version = "0.1" }
+tg-signal-defs = { path = "../tg-signal-defs", version = "0.1" }
