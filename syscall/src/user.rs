@@ -226,6 +226,11 @@ pub fn condvar_wait(condvar_id: usize, mutex_id: usize) -> isize {
 }
 
 #[inline]
+pub fn enable_deadlock_detect(is_enable: bool) -> isize {
+    unsafe { syscall1(SyscallId::ENABLE_DEADLOCK_DETECT, is_enable as usize) }
+}
+
+#[inline]
 pub fn trace(trace_request: usize, id: usize, data: usize) -> isize {
     unsafe { syscall3(SyscallId::TRACE, trace_request, id, data) }
 }

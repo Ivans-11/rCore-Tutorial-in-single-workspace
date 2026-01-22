@@ -159,6 +159,9 @@ pub trait SyncMutex: Sync {
     fn condvar_wait(&self, caller: Caller, condvar_id: usize, mutex_id: usize) -> isize {
         unimplemented!()
     }
+    fn enable_deadlock_detect(&self, caller: Caller, is_enable: i32) -> isize {
+        unimplemented!()
+    }
 }
 
 pub trait Trace: Sync {
@@ -288,6 +291,9 @@ pub fn handle(caller: Caller, id: SyscallId, args: [usize; 6]) -> SyscallResult 
         }
         Id::CONDVAR_WAIT => SYNC_MUTEX.call(id, |sync_mutex| {
             sync_mutex.condvar_wait(caller, args[0], args[1])
+        }),
+        Id::ENABLE_DEADLOCK_DETECT => SYNC_MUTEX.call(id, |sync_mutex| {
+            sync_mutex.enable_deadlock_detect(caller, args[0] as _)
         }),
         Id::TRACE => TRACE.call(id, |trace| trace.trace(caller, args[0], args[1], args[2])),
         Id::SPAWN => PROCESS.call(id, |proc| proc.spawn(caller, args[0], args[1])),
