@@ -317,6 +317,7 @@
 #define __NR_condvar_signal 1031
 #define __NR_condvar_wait 1032
 
+#define __NR_spawn 400
 #define __NR_trace 410
 
 

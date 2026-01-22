@@ -91,6 +91,14 @@ pub fn getpid() -> isize {
     unsafe { syscall0(SyscallId::GETPID) }
 }
 
+pub fn spawn(path: &str) -> isize {
+    unsafe { syscall2(SyscallId::SPAWN, path.as_ptr() as usize, path.len()) }
+}
+
+pub fn set_priority(prio: isize) -> isize {
+    unsafe { syscall1(SyscallId::SETPRIORITY, prio as usize) }
+}
+
 #[inline]
 pub fn kill(pid: isize, signum: SignalNo) -> isize {
     unsafe { syscall2(SyscallId::KILL, pid as _, signum as _) }

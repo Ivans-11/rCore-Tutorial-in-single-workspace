@@ -30,6 +30,9 @@ pub trait Process: Sync {
     fn getpid(&self, caller: Caller) -> isize {
         unimplemented!()
     }
+    fn spawn(&self, caller: Caller, path: usize, count: usize) -> isize {
+        unimplemented!()
+    }
 }
 
 pub trait IO: Sync {
@@ -68,6 +71,9 @@ pub trait Memory: Sync {
 
 pub trait Scheduling: Sync {
     fn sched_yield(&self, caller: Caller) -> isize {
+        unimplemented!()
+    }
+    fn set_priority(&self, caller: Caller, prio: isize) -> isize {
         unimplemented!()
     }
 }
@@ -262,6 +268,8 @@ pub fn handle(caller: Caller, id: SyscallId, args: [usize; 6]) -> SyscallResult 
             sync_mutex.condvar_wait(caller, args[0], args[1])
         }),
         Id::TRACE => TRACE.call(id, |trace| trace.trace(caller, args[0], args[1], args[2])),
+        Id::SPAWN => PROCESS.call(id, |proc| proc.spawn(caller, args[0], args[1])),
+        Id::SETPRIORITY => SCHEDULING.call(id, |sched| sched.set_priority(caller, args[0] as _)),
         _ => SyscallResult::Unsupported(id),
     }
 }
