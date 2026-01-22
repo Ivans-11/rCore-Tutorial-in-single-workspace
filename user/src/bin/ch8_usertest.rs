@@ -7,22 +7,22 @@ extern crate user_lib;
 use user_lib::{fork, exec, waitpid};
 
 const TESTS: &[&str] = &[
-    "00hello_world\0",
-    "08power_3\0",
-    "09power_5\0",
-    "10power_7\0",
-    "12forktest\0",
-    "14forktest2\0",
-    "filetest_simple\0",
-    "threads\0",
-    "threads_arg\0",
-    "mpsc_sem\0",
-    "sync_sem\0",
-    "race_adder_mutex_blocking\0",
-    "test_condvar\0",
-    "ch8_deadlock_mutex1\0",
-    "ch8_deadlock_sem1\0",
-    "ch8_deadlock_sem2\0",
+    "00hello_world",
+    "08power_3",
+    "09power_5",
+    "10power_7",
+    "12forktest",
+    "14forktest2",
+    "filetest_simple",
+    "threads",
+    "threads_arg",
+    "mpsc_sem",
+    "sync_sem",
+    "race_adder_mutex_blocking",
+    "test_condvar",
+    "ch8_deadlock_mutex1",
+    "ch8_deadlock_sem1",
+    "ch8_deadlock_sem2",
 ];
 
 const TEST_NUM: usize = TESTS.len();
