@@ -176,6 +176,8 @@ impl Process {
                     Some(Mutex::new(FileHandle::empty(true, false))),
                     // Stdout
                     Some(Mutex::new(FileHandle::empty(false, true))),
+                    // Stderr
+                    Some(Mutex::new(FileHandle::empty(false, true))),
                 ],
                 signal: Box::new(SignalImpl::new()),
                 semaphore_list: Vec::new(),

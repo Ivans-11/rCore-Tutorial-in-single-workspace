@@ -467,7 +467,7 @@ mod impls {
                     .address_space
                     .translate(VAddr::new(exit_code_ptr), WRITABLE)
                 {
-                    unsafe { *ptr.as_mut() = exit_code };
+                    unsafe { *ptr.as_mut() = exit_code as i32 };
                 }
                 return dead_pid.get_usize() as _;
             } else {
