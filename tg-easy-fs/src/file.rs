@@ -113,7 +113,7 @@ impl FileHandle {
         let mut total_read_size: usize = 0;
         if let Some(inode) = &self.inode {
             for slice in buf.buffers.iter_mut() {
-                let read_size = inode.read_at(self.offset, *slice);
+                let read_size = inode.read_at(self.offset, slice);
                 if read_size == 0 {
                     break;
                 }
@@ -131,7 +131,7 @@ impl FileHandle {
         let mut total_write_size: usize = 0;
         if let Some(inode) = &self.inode {
             for slice in buf.buffers.iter() {
-                let write_size = inode.write_at(self.offset, *slice);
+                let write_size = inode.write_at(self.offset, slice);
                 assert_eq!(write_size, slice.len());
                 self.offset += write_size;
                 total_write_size += write_size;

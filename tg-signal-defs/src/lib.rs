@@ -12,7 +12,9 @@
 #[derive(Debug, Clone, Copy, Default)]
 /// 信号处理函数的定义
 pub struct SignalAction {
+    /// 信号处理函数的地址
     pub handler: usize,
+    /// 信号掩码
     pub mask: usize,
 }
 

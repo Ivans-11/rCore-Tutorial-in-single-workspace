@@ -13,19 +13,19 @@ extern crate alloc;
 use alloc::{alloc::alloc, collections::BTreeMap};
 use core::{alloc::Layout, ffi::CStr, mem::MaybeUninit};
 use impls::{Console, Sv39Manager, SyscallContext};
+use process::Process;
+use processor::{ProcManager, PROCESSOR};
+use riscv::register::*;
+use sbi_rt::*;
+use spin::Lazy;
+use tg_console::log;
 use tg_kernel_context::foreign::MultislotPortal;
 use tg_kernel_vm::{
     page_table::{MmuMeta, Sv39, VAddr, VmFlags, VmMeta, PPN, VPN},
     AddressSpace,
 };
-use process::Process;
-use processor::{ProcManager, PROCESSOR};
-use tg_console::log;
-use tg_task_manage::ProcId;
-use riscv::register::*;
-use sbi_rt::*;
-use spin::Lazy;
 use tg_syscall::Caller;
+use tg_task_manage::ProcId;
 use xmas_elf::ElfFile;
 
 // 应用程序内联进来。
@@ -187,13 +187,13 @@ mod impls {
     use crate::{APPS, PROCESSOR};
     use alloc::alloc::alloc_zeroed;
     use core::{alloc::Layout, ptr::NonNull};
+    use tg_console::log;
     use tg_kernel_vm::{
         page_table::{MmuMeta, Pte, Sv39, VAddr, VmFlags, PPN, VPN},
         PageManager,
     };
-    use tg_console::log;
-    use tg_task_manage::ProcId;
     use tg_syscall::*;
+    use tg_task_manage::ProcId;
     use xmas_elf::ElfFile;
 
     #[repr(transparent)]
@@ -338,7 +338,7 @@ mod impls {
 
         fn fork(&self, _caller: Caller) -> isize {
             let current = unsafe { PROCESSOR.current().unwrap() };
-            let parent_pid = current.pid;  // 先保存父进程 pid
+            let parent_pid = current.pid; // 先保存父进程 pid
             let mut child_proc = current.fork().unwrap();
             let pid = child_proc.pid;
             let context = &mut child_proc.context.context;

@@ -6,10 +6,10 @@
 extern crate tg_console;
 
 use impls::{Console, SyscallContext};
-use tg_kernel_context::LocalContext;
-use tg_console::log;
 use riscv::register::*;
 use sbi_rt::*;
+use tg_console::log;
+use tg_kernel_context::LocalContext;
 use tg_syscall::{Caller, SyscallId};
 
 // 用户程序内联进来。

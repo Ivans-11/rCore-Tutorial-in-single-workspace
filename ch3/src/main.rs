@@ -8,10 +8,10 @@ mod task;
 extern crate tg_console;
 
 use impls::{Console, SyscallContext};
-use tg_console::log;
 use riscv::register::*;
 use sbi_rt::*;
 use task::TaskControlBlock;
+use tg_console::log;
 
 // 应用程序内联进来。
 core::arch::global_asm!(include_str!(env!("APP_ASM")));
@@ -164,7 +164,12 @@ mod impls {
 
     impl Clock for SyscallContext {
         #[inline]
-        fn clock_gettime(&self, _caller: tg_syscall::Caller, clock_id: ClockId, tp: usize) -> isize {
+        fn clock_gettime(
+            &self,
+            _caller: tg_syscall::Caller,
+            clock_id: ClockId,
+            tp: usize,
+        ) -> isize {
             match clock_id {
                 ClockId::CLOCK_MONOTONIC => {
                     let time = riscv::register::time::read() * 10000 / 125;

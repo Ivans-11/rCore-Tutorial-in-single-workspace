@@ -4,6 +4,7 @@
 /// 信号位数组，用于表示信号集合。
 pub(crate) struct SignalSet(pub(crate) usize);
 
+#[allow(dead_code)]
 impl SignalSet {
     /// 新建一个空的数组
     pub fn empty() -> Self {
