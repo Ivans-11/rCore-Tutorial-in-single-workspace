@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ch: [3, 4, 5]
+        ch: [3, 4, 5, 6, 8]
     steps:
       - uses: actions/checkout@v4
 
