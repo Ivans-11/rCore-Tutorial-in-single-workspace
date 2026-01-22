@@ -26,13 +26,13 @@ pub enum HandlingSignal {
 /// 管理一个进程中的信号
 pub struct SignalImpl {
     /// 已收到的信号
-    pub received: SignalSet,
+    received: SignalSet,
     /// 屏蔽的信号掩码
-    pub mask: SignalSet,
+    mask: SignalSet,
     /// 在信号处理函数中，保存之前的用户栈
-    pub handling: Option<HandlingSignal>,
+    handling: Option<HandlingSignal>,
     /// 当前任务的信号处理函数集
-    pub actions: [Option<SignalAction>; MAX_SIG + 1],
+    actions: [Option<SignalAction>; MAX_SIG + 1],
 }
 
 impl SignalImpl {

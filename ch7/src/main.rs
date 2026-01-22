@@ -21,20 +21,20 @@ use crate::{
 };
 use alloc::alloc::alloc;
 use core::{alloc::Layout, mem::MaybeUninit};
-use tg_easy_fs::{FSManager, OpenFlags};
 use impls::Console;
+pub use processor::PROCESSOR;
+use riscv::register::*;
+use sbi_rt::*;
+use tg_console::log;
+use tg_easy_fs::{FSManager, OpenFlags};
 use tg_kernel_context::foreign::MultislotPortal;
 use tg_kernel_vm::{
     page_table::{MmuMeta, Sv39, VAddr, VmFlags, VmMeta, PPN, VPN},
     AddressSpace,
 };
-pub use processor::PROCESSOR;
-use tg_console::log;
-use tg_task_manage::ProcId;
-use riscv::register::*;
-use sbi_rt::*;
 use tg_signal::SignalResult;
 use tg_syscall::Caller;
+use tg_task_manage::ProcId;
 use xmas_elf::ElfFile;
 
 // 定义内核入口。
@@ -213,17 +213,17 @@ mod impls {
     };
     use alloc::{alloc::alloc_zeroed, string::String, vec::Vec};
     use core::{alloc::Layout, ptr::NonNull};
+    use spin::Mutex;
+    use tg_console::log;
     use tg_easy_fs::UserBuffer;
     use tg_easy_fs::{FSManager, OpenFlags};
     use tg_kernel_vm::{
         page_table::{MmuMeta, Pte, Sv39, VAddr, VmFlags, PPN, VPN},
         PageManager,
     };
-    use tg_console::log;
-    use tg_task_manage::ProcId;
     use tg_signal::SignalNo;
-    use spin::Mutex;
     use tg_syscall::*;
+    use tg_task_manage::ProcId;
     use xmas_elf::ElfFile;
 
     #[repr(transparent)]
@@ -420,7 +420,7 @@ mod impls {
 
         fn fork(&self, _caller: Caller) -> isize {
             let current = unsafe { PROCESSOR.current().unwrap() };
-            let parent_pid = current.pid;  // 先保存父进程 pid
+            let parent_pid = current.pid; // 先保存父进程 pid
             let mut child_proc = current.fork().unwrap();
             let pid = child_proc.pid;
             let context = &mut child_proc.context.context;

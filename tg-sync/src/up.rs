@@ -76,11 +76,10 @@ pub struct IntrMaskingInfo {
 /// 全局中断屏蔽信息。
 ///
 /// SAFETY: 此静态变量仅在单处理器内核中使用，通过中断屏蔽保证访问安全。
-pub static INTR_MASKING_INFO: Lazy<UPSafeCellRaw<IntrMaskingInfo>> =
-    Lazy::new(|| {
-        // SAFETY: 内核运行在单处理器环境下
-        unsafe { UPSafeCellRaw::new(IntrMaskingInfo::new()) }
-    });
+pub static INTR_MASKING_INFO: Lazy<UPSafeCellRaw<IntrMaskingInfo>> = Lazy::new(|| {
+    // SAFETY: 内核运行在单处理器环境下
+    unsafe { UPSafeCellRaw::new(IntrMaskingInfo::new()) }
+});
 
 impl IntrMaskingInfo {
     pub fn new() -> Self {

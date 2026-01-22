@@ -16,14 +16,14 @@ use crate::{
 use alloc::{alloc::alloc, vec::Vec};
 use core::alloc::Layout;
 use impls::Console;
+use riscv::register::*;
+use sbi_rt::*;
+use tg_console::log;
 use tg_kernel_context::{foreign::MultislotPortal, LocalContext};
 use tg_kernel_vm::{
     page_table::{MmuMeta, Sv39, VAddr, VmFlags, VmMeta, PPN, VPN},
     AddressSpace,
 };
-use tg_console::log;
-use riscv::register::*;
-use sbi_rt::*;
 use tg_syscall::Caller;
 use xmas_elf::ElfFile;
 
@@ -196,11 +196,11 @@ mod impls {
     use crate::PROCESSES;
     use alloc::alloc::alloc_zeroed;
     use core::{alloc::Layout, ptr::NonNull};
+    use tg_console::log;
     use tg_kernel_vm::{
         page_table::{MmuMeta, Pte, Sv39, VAddr, VmFlags, PPN, VPN},
         PageManager,
     };
-    use tg_console::log;
     use tg_syscall::*;
 
     #[repr(transparent)]

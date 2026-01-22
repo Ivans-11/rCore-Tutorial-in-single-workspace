@@ -22,7 +22,7 @@ impl Cases {
             let base = self.base.unwrap_or(0);
             let step = self.step.filter(|_| self.base.is_some()).unwrap_or(0);
             let cases = names
-                .into_iter()
+                .iter()
                 .enumerate()
                 .map(|(i, name)| build_one(name, release, base + i as u64 * step))
                 .collect();
@@ -122,7 +122,7 @@ app_{i}_end:",
 app_names:"
         )
         .unwrap();
-        bins.iter().enumerate().for_each(|(_, path)| {
+        bins.iter().for_each(|path| {
             writeln!(ld, "    .string {:?}", path.file_name().unwrap()).unwrap();
         });
     } else if ch >= 6 {
