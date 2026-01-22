@@ -99,6 +99,8 @@ extern "C" fn schedule() -> ! {
     syscall::init_process(&SyscallContext);
     syscall::init_scheduling(&SyscallContext);
     syscall::init_clock(&SyscallContext);
+    syscall::init_trace(&SyscallContext);
+    syscall::init_memory(&SyscallContext);
     while !unsafe { PROCESSES.is_empty() } {
         let ctx = unsafe { &mut PROCESSES[0].context };
         unsafe { ctx.execute(portal, ()) };
@@ -344,6 +346,29 @@ mod impls {
                 }
                 _ => -1,
             }
+        }
+    }
+
+    impl Trace for SyscallContext {
+        // TODO: 实现 trace 系统调用
+        #[inline]
+        fn trace(&self, _caller: syscall::Caller, _trace_request: usize, _id: usize, _data: usize) -> isize {
+            rcore_console::log::info!("trace: not implemented");
+            -1
+        }
+    }
+
+    impl Memory for SyscallContext {
+        // TODO: 实现 mmap 系统调用
+        fn mmap(&self, _caller: Caller, addr: usize, len: usize, prot: i32, _flags: i32, _fd: i32, _offset: usize) -> isize {
+            rcore_console::log::info!("mmap: addr = {addr:#x}, len = {len}, prot = {prot}, not implemented");
+            -1
+        }
+
+        // TODO: 实现 munmap 系统调用
+        fn munmap(&self, _caller: Caller, addr: usize, len: usize) -> isize {
+            rcore_console::log::info!("munmap: addr = {addr:#x}, len = {len}, not implemented");
+            -1
         }
     }
 }

@@ -134,6 +134,13 @@ cases = [
 
 [ch4_exercise]
 cases = [
+    "ch4_mmap",
+    "ch4_mmap1",
+    "ch4_mmap2",
+    "ch4_mmap3",
+    "ch4_unmap",
+    "ch4_unmap2",
+    "ch4_trace",
 ]
 
 [ch5_exercise]

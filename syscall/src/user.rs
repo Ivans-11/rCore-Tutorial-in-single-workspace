@@ -214,6 +214,16 @@ pub fn count_syscall(syscall_id: usize) -> isize {
     trace(2, syscall_id, 0)
 }
 
+#[inline]
+pub fn mmap(start: usize, len: usize, prot: usize) -> isize {
+    unsafe { syscall6(SyscallId::MMAP, start, len, prot, 0, 0, 0) }
+}
+
+#[inline]
+pub fn munmap(start: usize, len: usize) -> isize {
+    unsafe { syscall2(SyscallId::MUNMAP, start, len) }
+}
+
 /// 这个模块包含调用系统调用的最小封装，用户可以直接使用这些函数调用自定义的系统调用。
 pub mod native {
     use crate::SyscallId;
