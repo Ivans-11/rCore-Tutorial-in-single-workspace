@@ -48,6 +48,23 @@ pub trait IO: Sync {
     fn close(&self, caller: Caller, fd: usize) -> isize {
         unimplemented!()
     }
+    fn linkat(
+        &self,
+        caller: Caller,
+        olddirfd: i32,
+        oldpath: usize,
+        newdirfd: i32,
+        newpath: usize,
+        flags: u32,
+    ) -> isize {
+        unimplemented!()
+    }
+    fn unlinkat(&self, caller: Caller, dirfd: i32, path: usize, flags: u32) -> isize {
+        unimplemented!()
+    }
+    fn fstat(&self, caller: Caller, fd: usize, st: usize) -> isize {
+        unimplemented!()
+    }
 }
 
 pub trait Memory: Sync {
@@ -217,6 +234,11 @@ pub fn handle(caller: Caller, id: SyscallId, args: [usize; 6]) -> SyscallResult 
         Id::READ => IO.call(id, |io| io.read(caller, args[0], args[1], args[2])),
         Id::OPENAT => IO.call(id, |io| io.open(caller, args[0], args[1])),
         Id::CLOSE => IO.call(id, |io| io.close(caller, args[0])),
+        Id::LINKAT => IO.call(id, |io| {
+            io.linkat(caller, args[0] as _, args[1], args[2] as _, args[3], args[4] as _)
+        }),
+        Id::UNLINKAT => IO.call(id, |io| io.unlinkat(caller, args[0] as _, args[1], args[2] as _)),
+        Id::FSTAT => IO.call(id, |io| io.fstat(caller, args[0], args[1])),
         Id::EXIT => PROCESS.call(id, |proc| proc.exit(caller, args[0])),
         Id::CLONE => PROCESS.call(id, |proc| proc.fork(caller)),
         Id::EXECVE => PROCESS.call(id, |proc| proc.exec(caller, args[0], args[1])),

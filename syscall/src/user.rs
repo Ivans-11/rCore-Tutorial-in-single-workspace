@@ -1,4 +1,4 @@
-use crate::{ClockId, SignalAction, SignalNo, SyscallId, TimeSpec};
+use crate::{ClockId, SignalAction, SignalNo, Stat, SyscallId, TimeSpec};
 use bitflags::*;
 use native::*;
 
@@ -37,6 +37,34 @@ pub fn open(path: &str, flags: OpenFlags) -> isize {
 #[inline]
 pub fn close(fd: usize) -> isize {
     unsafe { syscall1(SyscallId::CLOSE, fd) }
+}
+
+pub fn link(oldpath: &str, newpath: &str) -> isize {
+    unsafe {
+        syscall5(
+            SyscallId::LINKAT,
+            -100isize as usize, // AT_FDCWD
+            oldpath.as_ptr() as usize,
+            -100isize as usize, // AT_FDCWD
+            newpath.as_ptr() as usize,
+            0,
+        )
+    }
+}
+
+pub fn unlink(path: &str) -> isize {
+    unsafe {
+        syscall3(
+            SyscallId::UNLINKAT,
+            -100isize as usize, // AT_FDCWD
+            path.as_ptr() as usize,
+            0,
+        )
+    }
+}
+
+pub fn fstat(fd: usize, st: &mut Stat) -> isize {
+    unsafe { syscall2(SyscallId::FSTAT, fd, st as *const _ as usize) }
 }
 
 /// see <https://man7.org/linux/man-pages/man2/exit.2.html>.
