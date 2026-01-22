@@ -75,6 +75,7 @@ extern "C" fn rust_main() -> ! {
     syscall::init_process(&SyscallContext);
     syscall::init_scheduling(&SyscallContext);
     syscall::init_clock(&SyscallContext);
+    syscall::init_memory(&SyscallContext);
     // 加载初始进程
     let initproc = read_all(FS.open("initproc", OpenFlags::RDONLY).unwrap());
     if let Some(process) = Process::from_elf(ElfFile::new(initproc.as_slice()).unwrap()) {
@@ -391,6 +392,24 @@ mod impls {
             current.fd_table[fd].take();
             0
         }
+
+        // TODO: 实现 linkat 系统调用
+        fn linkat(&self, _caller: Caller, _olddirfd: i32, oldpath: usize, _newdirfd: i32, newpath: usize, _flags: u32) -> isize {
+            rcore_console::log::info!("linkat: not implemented");
+            -1
+        }
+
+        // TODO: 实现 unlinkat 系统调用
+        fn unlinkat(&self, _caller: Caller, _dirfd: i32, path: usize, _flags: u32) -> isize {
+            rcore_console::log::info!("unlinkat: not implemented");
+            -1
+        }
+
+        // TODO: 实现 fstat 系统调用
+        fn fstat(&self, _caller: Caller, fd: usize, st: usize) -> isize {
+            rcore_console::log::info!("fstat: not implemented");
+            -1
+        }
     }
 
     impl Process for SyscallContext {
@@ -461,12 +480,26 @@ mod impls {
             let current = unsafe { PROCESSOR.current().unwrap() };
             current.pid.get_usize() as _
         }
+
+        // TODO: 实现 spawn 系统调用
+        fn spawn(&self, _caller: Caller, path: usize, count: usize) -> isize {
+            let current = unsafe { PROCESSOR.current().unwrap() };
+            rcore_console::log::info!("spawn: parent pid = {}, not implemented", current.pid.get_usize());
+            -1
+        }
     }
 
     impl Scheduling for SyscallContext {
         #[inline]
         fn sched_yield(&self, _caller: Caller) -> isize {
             0
+        }
+
+        // TODO: 实现 set_priority 系统调用
+        fn set_priority(&self, caller: Caller, prio: isize) -> isize {
+            let current = unsafe { PROCESSOR.current().unwrap() };
+            rcore_console::log::info!("set_priority: pid = {}, prio = {}, not implemented", current.pid.get_usize(), prio);
+            -1
         }
     }
 
@@ -493,6 +526,20 @@ mod impls {
                 }
                 _ => -1,
             }
+        }
+    }
+
+    impl Memory for SyscallContext {
+        // TODO: 实现 mmap 系统调用
+        fn mmap(&self, _caller: Caller, addr: usize, len: usize, prot: i32, _flags: i32, _fd: i32, _offset: usize) -> isize {
+            rcore_console::log::info!("mmap: addr = {addr:#x}, len = {len}, prot = {prot}, not implemented");
+            -1
+        }
+
+        // TODO: 实现 munmap 系统调用
+        fn munmap(&self, _caller: Caller, addr: usize, len: usize) -> isize {
+            rcore_console::log::info!("munmap: addr = {addr:#x}, len = {len}, not implemented");
+            -1
         }
     }
 }

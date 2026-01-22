@@ -813,5 +813,11 @@ mod impls {
                 0
             }
         }
+
+        // TODO: 实现 enable_deadlock_detect 系统调用
+        fn enable_deadlock_detect(&self, _caller: Caller, is_enable: i32) -> isize {
+            rcore_console::log::info!("enable_deadlock_detect: is_enable = {is_enable}, not implemented");
+            -1
+        }
     }
 }
