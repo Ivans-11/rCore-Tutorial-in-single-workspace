@@ -1,36 +1,53 @@
-﻿name: CI
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "lab" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "lab" ]
+  workflow_dispatch:
 
 jobs:
-  make:
+  fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Build syscall
-        uses: actions-rs/cargo@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          command: build
-          args: --package syscall
+          components: rustfmt
 
       - name: Check format
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --check
+        run: cargo fmt --all --check
 
-      - name: Make every chapter
+  qemu-exercise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        ch: [3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout checker
         run: |
-          cargo make --ch 1
-          cargo make --ch 2
-          cargo make --ch 3
-          cargo make --ch 4
-          cargo make --ch 5
-          cargo make --ch 6
-          cargo make --ch 7
-          cargo make --ch 8
+          git clone --depth 1 https://github.com/LearningOS/rCore-Tutorial-Checker-2025S.git checker
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-misc
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-src, llvm-tools-preview
+          targets: riscv64gc-unknown-none-elf
+
+      - name: Run exercise in QEMU and check output (ch${{ matrix.ch }})
+        run: |
+          set -euxo pipefail
+          timeout 10m cargo qemu --ch ${{ matrix.ch }} --exercise --nobios 2>&1 \
+            | python3 checker/check/ch${{ matrix.ch }}.py
