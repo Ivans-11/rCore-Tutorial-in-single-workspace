@@ -170,8 +170,8 @@ fn handle_base(fid: usize) -> SbiRet {
 #[unsafe(no_mangle)]
 pub fn m_trap_handler(
     a0: usize,
-    a1: usize,
-    a2: usize,
+    _a1: usize,
+    _a2: usize,
     _a3: usize,
     _a4: usize,
     _a5: usize,

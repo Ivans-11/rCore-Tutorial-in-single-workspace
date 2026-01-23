@@ -17,14 +17,17 @@ pub struct CasesInfo {
 }
 
 impl Cases {
-    fn build(&mut self, release: bool) -> CasesInfo {
+    fn build(&mut self, ch: u8, release: bool, exercise: bool) -> CasesInfo {
         if let Some(names) = &self.cases {
             let base = self.base.unwrap_or(0);
             let step = self.step.filter(|_| self.base.is_some()).unwrap_or(0);
+            let chapter_env = if exercise { Some(ch) } else { None };
             let cases = names
                 .into_iter()
                 .enumerate()
-                .map(|(i, name)| build_one(name, release, base + i as u64 * step))
+                .map(|(i, name)| {
+                    build_one(chapter_env, name, release, base + i as u64 * step)
+                })
                 .collect();
             CasesInfo {
                 base,
@@ -41,7 +44,12 @@ impl Cases {
     }
 }
 
-fn build_one(name: impl AsRef<OsStr>, release: bool, base_address: u64) -> PathBuf {
+fn build_one(
+    chapter_env: Option<u8>,
+    name: impl AsRef<OsStr>,
+    release: bool,
+    base_address: u64,
+) -> PathBuf {
     let name = name.as_ref();
     let binary = base_address != 0;
     if binary {
@@ -52,6 +60,9 @@ fn build_one(name: impl AsRef<OsStr>, release: bool, base_address: u64) -> PathB
         .target(TARGET_ARCH)
         .arg("--bin")
         .arg(name)
+        .conditional(chapter_env.is_some(), |cargo| {
+            cargo.env("CHAPTER", chapter_env.unwrap().to_string());
+        })
         .conditional(release, |cargo| {
             cargo.release();
         })
@@ -80,7 +91,7 @@ pub fn build_for(ch: u8, release: bool, exercise: bool) {
         .unwrap()
         .remove(&key)
         .unwrap_or_default();
-    let CasesInfo { base, step, bins } = cases.build(release);
+    let CasesInfo { base, step, bins } = cases.build(ch, release, exercise);
     if bins.is_empty() {
         return;
     }
