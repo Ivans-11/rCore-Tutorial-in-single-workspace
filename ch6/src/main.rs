@@ -491,9 +491,9 @@ mod impls {
             {
                 if let Some(mut ptr) = current
                     .address_space
-                    .translate::<isize>(VAddr::new(exit_code_ptr), WRITABLE)
+                    .translate::<i32>(VAddr::new(exit_code_ptr), WRITABLE)
                 {
-                    unsafe { *ptr.as_mut() = exit_code as isize };
+                    unsafe { *ptr.as_mut() = exit_code as i32 };
                 }
                 return dead_pid.get_usize() as isize;
             } else {

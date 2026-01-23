@@ -70,7 +70,7 @@ impl Hal for VirtioHal {
         const VALID: VmFlags<Sv39> = VmFlags::build_from_str("__V");
         let ptr: NonNull<u8> = unsafe {
             KERNEL_SPACE
-                .get()
+                .assume_init_ref()
                 .translate(VAddr::new(vaddr), VALID)
                 .unwrap()
         };

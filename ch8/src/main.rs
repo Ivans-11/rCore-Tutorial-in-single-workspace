@@ -42,26 +42,30 @@ linker::boot0!(rust_main; stack = 32 * 4096);
 const MEMORY: usize = 48 << 20;
 // 传送门所在虚页。
 const PROTAL_TRANSIT: VPN<Sv39> = VPN::MAX;
-// 内核地址空间。
-struct KernelSpace(UnsafeCell<MaybeUninit<AddressSpace<Sv39, Sv39Manager>>>);
+struct KernelSpace {
+    inner: UnsafeCell<MaybeUninit<AddressSpace<Sv39, Sv39Manager>>>,
+}
 
 unsafe impl Sync for KernelSpace {}
 
 impl KernelSpace {
-    const fn uninit() -> Self {
-        Self(UnsafeCell::new(MaybeUninit::uninit()))
+    const fn new() -> Self {
+        Self {
+            inner: UnsafeCell::new(MaybeUninit::uninit()),
+        }
     }
 
-    unsafe fn init(&self, space: AddressSpace<Sv39, Sv39Manager>) {
-        (*self.0.get()) = MaybeUninit::new(space);
+    unsafe fn write(&self, space: AddressSpace<Sv39, Sv39Manager>) {
+        *self.inner.get() = MaybeUninit::new(space);
     }
 
-    unsafe fn get(&self) -> &AddressSpace<Sv39, Sv39Manager> {
-        &*(*self.0.get()).as_ptr()
+    unsafe fn assume_init_ref(&self) -> &AddressSpace<Sv39, Sv39Manager> {
+        &*(*self.inner.get()).as_ptr()
     }
 }
 
-static KERNEL_SPACE: KernelSpace = KernelSpace::uninit();
+// 内核地址空间。
+static KERNEL_SPACE: KernelSpace = KernelSpace::new();
 
 extern "C" fn rust_main() -> ! {
     let layout = linker::KernelLayout::locate();
@@ -227,13 +231,13 @@ fn kernel_space(layout: linker::KernelLayout, memory: usize, portal: usize) {
     }
 
     unsafe { satp::set(satp::Mode::Sv39, 0, space.root_ppn().val()) };
-    unsafe { KERNEL_SPACE.init(space) };
+    unsafe { KERNEL_SPACE.write(space) };
 }
 
 /// 映射异界传送门。
 fn map_portal(space: &AddressSpace<Sv39, Sv39Manager>) {
     let portal_idx = PROTAL_TRANSIT.index_in(Sv39::MAX_LEVEL);
-    space.root()[portal_idx] = unsafe { KERNEL_SPACE.get() }.root()[portal_idx];
+    space.root()[portal_idx] = unsafe { KERNEL_SPACE.assume_init_ref() }.root()[portal_idx];
 }
 
 /// 各种接口库的实现。
@@ -499,9 +503,9 @@ mod impls {
             {
                 if let Some(mut ptr) = current
                     .address_space
-                    .translate::<isize>(VAddr::new(exit_code_ptr), WRITABLE)
+                    .translate::<i32>(VAddr::new(exit_code_ptr), WRITABLE)
                 {
-                    unsafe { *ptr.as_mut() = exit_code as isize };
+                    unsafe { *ptr.as_mut() = exit_code as i32 };
                 }
                 return dead_pid.get_usize() as isize;
             } else {
