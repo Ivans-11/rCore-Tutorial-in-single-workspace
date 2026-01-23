@@ -6,12 +6,12 @@ extern crate user_lib;
 use user_lib::{set_priority, spawn, waitpid};
 
 static TESTS: &[&str] = &[
-    "ch5_stride0\0",
-    "ch5_stride1\0",
-    "ch5_stride2\0",
-    "ch5_stride3\0",
-    "ch5_stride4\0",
-    "ch5_stride5\0",
+    "ch5_stride0",
+    "ch5_stride1",
+    "ch5_stride2",
+    "ch5_stride3",
+    "ch5_stride4",
+    "ch5_stride5",
 ];
 
 #[no_mangle]

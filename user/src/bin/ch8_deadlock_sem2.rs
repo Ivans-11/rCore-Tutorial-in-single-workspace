@@ -6,7 +6,7 @@ extern crate user_lib;
 extern crate alloc;
 
 use user_lib::{
-    enable_deadlock_detect, exit, gettid, semaphore_create, semaphore_down, semaphore_up, sleep,
+    enable_deadlock_detect, exit, semaphore_create, semaphore_down, semaphore_up, sleep,
     thread_create, waittid,
 };
 
@@ -21,19 +21,19 @@ const RES_NUM: [usize; RES_TYPE] = [2, 2];
 const ALLOC: [usize; THREAD_N] = [2, 1, 1, 2];
 const REQUEST: [Option<usize>; THREAD_N] = [Some(1), None, Some(2), None];
 
-fn try_sem_down(sem_id: usize) {
+fn try_sem_down(sem_id: usize, thread_idx: usize) {
     if semaphore_down(sem_id) == -0xdead {
-        semaphore_up(ALLOC[(gettid() - 1) as usize]);
+        semaphore_up(ALLOC[thread_idx]);
         exit(-1);
     }
 }
 
-fn deadlock_test() {
-    let id = (gettid() - 1) as usize;
+fn deadlock_test(arg: usize) {
+    let id = arg; // 使用传递的索引而不是从gettid计算
     assert_eq!(semaphore_down(ALLOC[id]), 0);
     semaphore_down(0);
     if let Some(sem_id) = REQUEST[id] {
-        try_sem_down(sem_id);
+        try_sem_down(sem_id, id);
         semaphore_up(sem_id);
     }
     semaphore_up(ALLOC[id]);
@@ -54,7 +54,7 @@ extern "C" fn main() -> i32 {
     let mut tids = [0usize; THREAD_N];
 
     for i in 0..THREAD_N {
-        tids[i] = thread_create(deadlock_test as usize, 0) as usize;
+        tids[i] = thread_create(deadlock_test as usize, i) as usize;
     }
 
     sleep(1000);

@@ -118,6 +118,8 @@ extern "C" fn rust_main() -> ! {
                             Ret::Done(ret) => match id {
                                 Id::EXIT => unsafe { (*processor).make_current_exited(ret) },
                                 Id::SEMAPHORE_DOWN | Id::MUTEX_LOCK | Id::CONDVAR_WAIT => {
+                                    let ctx = &mut task.context.context;
+                                    *ctx.a_mut(0) = ret as _;
                                     if ret == -1 {
                                         unsafe { (*processor).make_current_blocked() };
                                     } else {
@@ -481,7 +483,7 @@ mod impls {
                     .address_space
                     .translate::<isize>(VAddr::new(exit_code_ptr), WRITABLE)
                 {
-                    unsafe { *ptr.as_mut() = exit_code };
+                    unsafe { *ptr.as_mut() = exit_code as i32 };
                 }
                 return dead_pid.get_usize() as isize;
             } else {

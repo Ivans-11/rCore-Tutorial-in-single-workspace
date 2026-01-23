@@ -11,7 +11,7 @@ const MAX_CHILD: usize = 40;
 #[no_mangle]
 extern "C" fn main() -> i32 {
     for _ in 0..MAX_CHILD {
-        let cpid = spawn("ch5_getpid\0");
+        let cpid = spawn("ch5_getpid");
         assert!(cpid >= 0, "child pid invalid");
         println!("new child {}", cpid);
     }

@@ -7,24 +7,24 @@ extern crate user_lib;
 use user_lib::{spawn, waitpid};
 
 static TESTS: &[&str] = &[
-    "00hello_world\0",
-    "08power_3\0",
-    "09power_5\0",
-    "10power_7\0",
-    "ch3_sleep\0",
-    "ch3_sleep1\0",
-    "ch4_mmap\0",
-    "ch4_mmap1\0",
-    "ch4_mmap2\0",
-    "ch4_mmap3\0",
-    "ch4_unmap\0",
-    "ch4_unmap2\0",
-    "ch5_spawn0\0",
-    "ch5_spawn1\0",
-    "ch5_setprio\0",
+    "00hello_world",
+    "08power_3",
+    "09power_5",
+    "10power_7",
+    "ch3_sleep",
+    "ch3_sleep1",
+    "ch4_mmap",
+    "ch4_mmap1",
+    "ch4_mmap2",
+    "ch4_mmap3",
+    "ch4_unmap",
+    "ch4_unmap2",
+    "ch5_spawn0",
+    "ch5_spawn1",
+    "ch5_setprio",
 ];
 
-static STEST: &str = "ch5_stride\0";
+static STEST: &str = "ch5_stride";
 
 /// 辅助测例，运行所有其他测例。
 
