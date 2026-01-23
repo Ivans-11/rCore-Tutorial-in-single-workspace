@@ -17,11 +17,11 @@ pub struct CasesInfo {
 }
 
 impl Cases {
-    fn build(&mut self, ch: u8, release: bool, exercise: bool) -> CasesInfo {
+    fn build(&mut self, ch: u8, release: bool, ci: bool) -> CasesInfo {
         if let Some(names) = &self.cases {
             let base = self.base.unwrap_or(0);
             let step = self.step.filter(|_| self.base.is_some()).unwrap_or(0);
-            let chapter_env = if exercise { Some(ch) } else { None };
+            let chapter_env = if ci { Some(ch) } else { None };
             let cases = names
                 .into_iter()
                 .enumerate()
@@ -80,7 +80,7 @@ fn build_one(
     }
 }
 
-pub fn build_for(ch: u8, release: bool, exercise: bool) {
+pub fn build_for(ch: u8, release: bool, exercise: bool, ci: bool) {
     let cfg = std::fs::read_to_string(PROJECT.join("user/cases.toml")).unwrap();
     let key = if exercise {
         format!("ch{ch}_exercise")
@@ -91,7 +91,7 @@ pub fn build_for(ch: u8, release: bool, exercise: bool) {
         .unwrap()
         .remove(&key)
         .unwrap_or_default();
-    let CasesInfo { base, step, bins } = cases.build(ch, release, exercise);
+    let CasesInfo { base, step, bins } = cases.build(ch, release, ci);
     if bins.is_empty() {
         return;
     }

@@ -58,6 +58,9 @@ struct BuildArgs {
     /// exercise mode (load exercise test cases)
     #[clap(long)]
     exercise: bool,
+    /// ci or not
+    #[clap(long)]
+    ci: bool,
     /// features
     #[clap(short, long)]
     features: Option<String>,
@@ -73,12 +76,19 @@ struct BuildArgs {
 }
 
 impl BuildArgs {
+    fn check(&self) {
+        if self.ci && !self.exercise {
+            eprintln!("need `--exercise` when `ci` is set");
+            std::process::exit(1);
+        }
+    }
     fn make(&self) -> PathBuf {
+        self.check();
         let mut env: HashMap<&str, OsString> = HashMap::new();
         let package = match self.ch {
             1 => if self.lab { "ch1-lab" } else { "ch1" }.to_string(),
             2..=8 => {
-                user::build_for(self.ch, false, self.exercise);
+                user::build_for(self.ch, false, self.exercise, self.ci);
                 env.insert(
                     "APP_ASM",
                     TARGET
