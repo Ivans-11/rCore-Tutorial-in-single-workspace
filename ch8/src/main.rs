@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-// #![deny(warnings)]
 
 mod fs;
 mod process;
@@ -17,10 +16,10 @@ use crate::{
     fs::{read_all, FS},
     impls::{Sv39Manager, SyscallContext},
     process::{Process, Thread},
-    processor::{ProcManager, ThreadManager},
+    processor::{ProcManager, ProcessorInner, ThreadManager},
 };
 use alloc::alloc::alloc;
-use core::{alloc::Layout, mem::MaybeUninit};
+use core::{alloc::Layout, cell::UnsafeCell, mem::MaybeUninit};
 use easy_fs::{FSManager, OpenFlags};
 use impls::Console;
 use kernel_context::foreign::MultislotPortal;
@@ -44,7 +43,25 @@ const MEMORY: usize = 48 << 20;
 // 传送门所在虚页。
 const PROTAL_TRANSIT: VPN<Sv39> = VPN::MAX;
 // 内核地址空间。
-static mut KERNEL_SPACE: MaybeUninit<AddressSpace<Sv39, Sv39Manager>> = MaybeUninit::uninit();
+struct KernelSpace(UnsafeCell<MaybeUninit<AddressSpace<Sv39, Sv39Manager>>>);
+
+unsafe impl Sync for KernelSpace {}
+
+impl KernelSpace {
+    const fn uninit() -> Self {
+        Self(UnsafeCell::new(MaybeUninit::uninit()))
+    }
+
+    unsafe fn init(&self, space: AddressSpace<Sv39, Sv39Manager>) {
+        (*self.0.get()) = MaybeUninit::new(space);
+    }
+
+    unsafe fn get(&self) -> &AddressSpace<Sv39, Sv39Manager> {
+        &*(*self.0.get()).as_ptr()
+    }
+}
+
+static KERNEL_SPACE: KernelSpace = KernelSpace::uninit();
 
 extern "C" fn rust_main() -> ! {
     let layout = linker::KernelLayout::locate();
@@ -90,7 +107,7 @@ extern "C" fn rust_main() -> ! {
         PROCESSOR.get_mut().add(tid, thread, pid);
     }
     loop {
-        let processor = PROCESSOR.get_mut() as *mut _;
+        let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
         if let Some(task) = unsafe { (*processor).find_next() } {
             unsafe { task.context.execute(portal, ()) };
             match scause::read().cause() {
@@ -210,19 +227,20 @@ fn kernel_space(layout: linker::KernelLayout, memory: usize, portal: usize) {
     }
 
     unsafe { satp::set(satp::Mode::Sv39, 0, space.root_ppn().val()) };
-    unsafe { KERNEL_SPACE = MaybeUninit::new(space) };
+    unsafe { KERNEL_SPACE.init(space) };
 }
 
 /// 映射异界传送门。
 fn map_portal(space: &AddressSpace<Sv39, Sv39Manager>) {
     let portal_idx = PROTAL_TRANSIT.index_in(Sv39::MAX_LEVEL);
-    space.root()[portal_idx] = unsafe { KERNEL_SPACE.assume_init_ref() }.root()[portal_idx];
+    space.root()[portal_idx] = unsafe { KERNEL_SPACE.get() }.root()[portal_idx];
 }
 
 /// 各种接口库的实现。
 mod impls {
     use crate::{
         fs::{read_all, FS},
+        processor::ProcessorInner,
         Thread, PROCESSOR,
     };
     use alloc::sync::Arc;
@@ -433,7 +451,7 @@ mod impls {
         }
 
         fn fork(&self, _caller: Caller) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };
             let (proc, mut thread) = current_proc.fork().unwrap();
             let pid = proc.pid;
@@ -473,7 +491,7 @@ mod impls {
         }
 
         fn wait(&self, _caller: Caller, pid: isize, exit_code_ptr: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current = unsafe { (*processor).get_current_proc().unwrap() };
             const WRITABLE: VmFlags<Sv39> = VmFlags::build_from_str("W_V");
             if let Some((dead_pid, exit_code)) =
@@ -483,7 +501,7 @@ mod impls {
                     .address_space
                     .translate::<isize>(VAddr::new(exit_code_ptr), WRITABLE)
                 {
-                    unsafe { *ptr.as_mut() = exit_code as i32 };
+                    unsafe { *ptr.as_mut() = exit_code as isize };
                 }
                 return dead_pid.get_usize() as isize;
             } else {
@@ -608,7 +626,7 @@ mod impls {
         }
 
         fn sigreturn(&self, _caller: Caller) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current = unsafe { (*processor).get_current_proc().unwrap() };
             let current_thread = unsafe { (*processor).current().unwrap() };
             // 如成功，则需要修改当前用户程序的 LocalContext
@@ -626,7 +644,7 @@ mod impls {
     impl syscall::Thread for SyscallContext {
         fn thread_create(&self, _caller: Caller, entry: usize, arg: usize) -> isize {
             // 主要的问题是用户栈怎么分配，这里不增加其他的数据结构，直接从规定的栈顶的位置从下搜索是否被映射
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };
             // 第一个线程的用户栈栈底
             let mut vpn = VPN::<Sv39>::new((1 << 26) - 2);
@@ -667,7 +685,7 @@ mod impls {
         }
 
         fn waittid(&self, _caller: Caller, tid: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current_thread = unsafe { (*processor).current().unwrap() };
             // 线程不能自己等待自己
             if tid == current_thread.tid.get_usize() {
@@ -704,7 +722,7 @@ mod impls {
         }
 
         fn semaphore_up(&self, _caller: Caller, sem_id: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };
             let sem = Arc::clone(current_proc.semaphore_list[sem_id].as_ref().unwrap());
             if let Some(tid) = sem.up() {
@@ -717,7 +735,7 @@ mod impls {
         }
 
         fn semaphore_down(&self, _caller: Caller, sem_id: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current = unsafe { (*processor).current().unwrap() };
             let tid = current.tid;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };
@@ -753,7 +771,7 @@ mod impls {
         }
 
         fn mutex_unlock(&self, _caller: Caller, mutex_id: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };
             let mutex = Arc::clone(current_proc.mutex_list[mutex_id].as_ref().unwrap());
             if let Some(tid) = mutex.unlock() {
@@ -766,7 +784,7 @@ mod impls {
         }
 
         fn mutex_lock(&self, _caller: Caller, mutex_id: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current = unsafe { (*processor).current().unwrap() };
             let tid = current.tid;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };
@@ -799,7 +817,7 @@ mod impls {
         }
 
         fn condvar_signal(&self, _caller: Caller, condvar_id: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };
             let condvar = Arc::clone(current_proc.condvar_list[condvar_id].as_ref().unwrap());
             if let Some(tid) = condvar.signal() {
@@ -812,7 +830,7 @@ mod impls {
         }
 
         fn condvar_wait(&self, _caller: Caller, condvar_id: usize, mutex_id: usize) -> isize {
-            let processor = PROCESSOR.get_mut() as *mut _;
+            let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
             let current = unsafe { (*processor).current().unwrap() };
             let tid = current.tid;
             let current_proc = unsafe { (*processor).get_current_proc().unwrap() };

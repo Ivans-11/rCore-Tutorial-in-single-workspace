@@ -3,8 +3,10 @@ use alloc::collections::{BTreeMap, VecDeque};
 use core::cell::UnsafeCell;
 use rcore_task_manage::{Manage, PThreadManager, ProcId, Schedule, ThreadId};
 
+pub type ProcessorInner = PThreadManager<Process, Thread, ThreadManager, ProcManager>;
+
 pub struct Processor {
-    inner: UnsafeCell<PThreadManager<Process, Thread, ThreadManager, ProcManager>>,
+    inner: UnsafeCell<ProcessorInner>,
 }
 
 unsafe impl Sync for Processor {}
@@ -17,7 +19,7 @@ impl Processor {
     }
 
     #[inline]
-    pub fn get_mut(&self) -> &mut PThreadManager<Process, Thread, ThreadManager, ProcManager> {
+    pub fn get_mut(&self) -> &mut ProcessorInner {
         unsafe { &mut (*self.inner.get()) }
     }
 }

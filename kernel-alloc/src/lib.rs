@@ -1,7 +1,6 @@
 //! 内存分配。
 
 #![no_std]
-// #![deny(warnings)]
 #![deny(missing_docs)]
 
 extern crate alloc;

@@ -1,4 +1,4 @@
-use crate::{map_portal, Sv39Manager, PROCESSOR};
+use crate::{map_portal, processor::ProcessorInner, Sv39Manager, PROCESSOR};
 use alloc::sync::Arc;
 use alloc::{alloc::alloc_zeroed, boxed::Box, vec::Vec};
 use core::{alloc::Layout, str::FromStr};
@@ -56,7 +56,7 @@ impl Process {
     pub fn exec(&mut self, elf: ElfFile) {
         let (proc, thread) = Process::from_elf(elf).unwrap();
         self.address_space = proc.address_space;
-        let processor = PROCESSOR.get_mut() as *mut _;
+        let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
         unsafe {
             let pthreads = (*processor).get_thread(self.pid).unwrap();
             (*processor).get_task(pthreads[0]).unwrap().context = thread.context;
@@ -72,7 +72,7 @@ impl Process {
         parent_addr_space.cloneself(&mut address_space);
         map_portal(&address_space);
         // 线程
-        let processor = PROCESSOR.get_mut() as *mut _;
+        let processor: *mut ProcessorInner = PROCESSOR.get_mut() as *mut ProcessorInner;
         let pthreads = unsafe { (*processor).get_thread(self.pid).unwrap() };
         let context = unsafe {
             (*processor)

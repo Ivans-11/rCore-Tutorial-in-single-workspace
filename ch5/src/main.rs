@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-// #![deny(warnings)]
 
 mod process;
 mod processor;
@@ -403,7 +402,7 @@ mod impls {
                     .address_space
                     .translate::<isize>(VAddr::new(exit_code_ptr), WRITABLE)
                 {
-                    unsafe { *ptr.as_mut() = exit_code as i32 };
+                    unsafe { *ptr.as_mut() = exit_code as isize };
                 }
                 return dead_pid.get_usize() as isize;
             } else {
