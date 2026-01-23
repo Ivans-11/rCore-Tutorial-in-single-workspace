@@ -4,7 +4,6 @@ mod heap;
 
 extern crate alloc;
 
-use core::alloc::Layout;
 use rcore_console::log;
 
 pub use rcore_console::{print, println};
