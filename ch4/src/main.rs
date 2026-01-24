@@ -16,13 +16,13 @@ use alloc::{alloc::alloc, vec::Vec};
 use core::{alloc::Layout, cell::UnsafeCell};
 use impls::Console;
 use riscv::register::*;
-use tg_sbi;
 use tg_console::log;
 use tg_kernel_context::{foreign::MultislotPortal, LocalContext};
 use tg_kernel_vm::{
     page_table::{MmuMeta, Sv39, VAddr, VmFlags, VmMeta, PPN, VPN},
     AddressSpace,
 };
+use tg_sbi;
 use tg_syscall::Caller;
 use xmas_elf::ElfFile;
 
@@ -367,13 +367,7 @@ mod impls {
     impl Trace for SyscallContext {
         // TODO: 实现 trace 系统调用
         #[inline]
-        fn trace(
-            &self,
-            _caller: Caller,
-            _trace_request: usize,
-            _id: usize,
-            _data: usize,
-        ) -> isize {
+        fn trace(&self, _caller: Caller, _trace_request: usize, _id: usize, _data: usize) -> isize {
             tg_console::log::info!("trace: not implemented");
             -1
         }

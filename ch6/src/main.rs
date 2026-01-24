@@ -23,7 +23,6 @@ use core::{alloc::Layout, cell::UnsafeCell, mem::MaybeUninit};
 use impls::Console;
 use processor::PROCESSOR;
 use riscv::register::*;
-use tg_sbi;
 use tg_console::log;
 use tg_easy_fs::{FSManager, OpenFlags};
 use tg_kernel_context::foreign::MultislotPortal;
@@ -31,6 +30,7 @@ use tg_kernel_vm::{
     page_table::{MmuMeta, Sv39, VAddr, VmFlags, VmMeta, PPN, VPN},
     AddressSpace,
 };
+use tg_sbi;
 use tg_syscall::Caller;
 use tg_task_manage::{PManager, ProcId};
 use xmas_elf::ElfFile;
