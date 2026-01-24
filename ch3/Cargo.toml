@@ -4,10 +4,17 @@ version = "0.0.1"
 edition = "2021"
 authors = ["YdrMaster <ydrml@hotmail.com>"]
 
+[features]
+default = []
+coop = []
+nobios = [
+    "tg-sbi/nobios",
+]
+
 [dependencies]
-sbi-rt = { version = "0.0.2", features = ["legacy"] }
 riscv = "0.10.1"
 
+tg-sbi = { path = "../tg-sbi" }
 tg-linker = { path = "../tg-linker" }
 tg-console = { path = "../tg-console" }
 tg-kernel-context = { path = "../tg-kernel-context" }
@@ -15,6 +22,3 @@ tg-syscall = { path = "../tg-syscall", features = ["kernel"] }
 
 [build-dependencies]
 tg-linker = { path = "../tg-linker" }
-
-[features]
-coop = []

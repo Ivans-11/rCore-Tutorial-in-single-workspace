@@ -1,6 +1,6 @@
-use super::{MonoForeignPortal, PortalCache};
 #[cfg(target_arch = "riscv64")]
 use super::PORTAL_TEXT;
+use super::{MonoForeignPortal, PortalCache};
 
 /// 包含多个插槽的异界传送门。
 #[repr(C)]

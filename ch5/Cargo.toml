@@ -4,12 +4,18 @@ version = "0.0.1"
 edition = "2021"
 authors = ["zflcs <1491657576@qq.com>"]
 
+[features]
+default = []
+nobios = [
+    "tg-sbi/nobios",
+]
+
 [dependencies]
-sbi-rt = { version = "0.0.2", features = ["legacy"] }
 xmas-elf = "0.8.0"
 riscv = "0.10.1"
 spin = "0.9"
 
+tg-sbi = { path = "../tg-sbi" }
 tg-linker = { path = "../tg-linker" }
 tg-console = { path = "../tg-console" }
 tg-kernel-context = { path = "../tg-kernel-context", features = ["foreign"] }

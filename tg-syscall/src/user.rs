@@ -1,4 +1,4 @@
-use crate::{ClockId, SignalAction, SignalNo, SyscallId, TimeSpec};
+use crate::{ClockId, SignalAction, SignalNo, Stat, SyscallId, TimeSpec};
 use bitflags::*;
 use native::*;
 
@@ -46,6 +46,40 @@ pub fn open(path: &str, flags: OpenFlags) -> isize {
 pub fn close(fd: usize) -> isize {
     // SAFETY: 系统调用参数是简单的整数值
     unsafe { syscall1(SyscallId::CLOSE, fd) }
+}
+
+/// 创建一个文件的一个硬链接。
+pub fn link(oldpath: &str, newpath: &str) -> isize {
+    // SAFETY: oldpath 和 newpath 是有效的字符串引用
+    unsafe {
+        syscall5(
+            SyscallId::LINKAT,
+            -100isize as usize, // AT_FDCWD
+            oldpath.as_ptr() as usize,
+            -100isize as usize, // AT_FDCWD
+            newpath.as_ptr() as usize,
+            0,
+        )
+    }
+}
+
+/// 取消一个文件路径到文件的链接。
+pub fn unlink(path: &str) -> isize {
+    // SAFETY: path 是有效的字符串引用
+    unsafe {
+        syscall3(
+            SyscallId::UNLINKAT,
+            -100isize as usize, // AT_FDCWD
+            path.as_ptr() as usize,
+            0,
+        )
+    }
+}
+
+/// 获取文件状态。
+pub fn fstat(fd: usize, st: &mut Stat) -> isize {
+    // SAFETY: 调用者需要确保 st 指向有效的可写内存
+    unsafe { syscall2(SyscallId::FSTAT, fd, st as *const _ as usize) }
 }
 
 /// 退出当前进程。
@@ -117,6 +151,18 @@ pub fn waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 pub fn getpid() -> isize {
     // SAFETY: 无参数系统调用
     unsafe { syscall0(SyscallId::GETPID) }
+}
+
+/// 创建并运行一个新进程。
+pub fn spawn(path: &str) -> isize {
+    // SAFETY: path 是有效的字符串引用
+    unsafe { syscall2(SyscallId::SPAWN, path.as_ptr() as usize, path.len()) }
+}
+
+/// 设置进程优先级。
+pub fn set_priority(prio: isize) -> isize {
+    // SAFETY: 系统调用参数是简单的整数值
+    unsafe { syscall1(SyscallId::SETPRIORITY, prio as usize) }
 }
 
 /// 向进程发送信号。
@@ -210,7 +256,7 @@ pub fn semaphore_down(sem_id: usize) -> isize {
 /// 创建互斥锁。
 #[inline]
 pub fn mutex_create(blocking: bool) -> isize {
-    // SAFETY: 系统调用参数是简单的整数值
+    // SAFETY: 系统调用参数是简单的布尔值
     unsafe { syscall1(SyscallId::MUTEX_CREATE, blocking as _) }
 }
 
@@ -247,6 +293,34 @@ pub fn condvar_signal(condvar_id: usize) -> isize {
 pub fn condvar_wait(condvar_id: usize, mutex_id: usize) -> isize {
     // SAFETY: 系统调用参数是简单的整数值
     unsafe { syscall2(SyscallId::CONDVAR_WAIT, condvar_id, mutex_id) }
+}
+
+/// 启用死锁检测。
+#[inline]
+pub fn enable_deadlock_detect(is_enable: bool) -> isize {
+    // SAFETY: 系统调用参数是简单的布尔值
+    unsafe { syscall1(SyscallId::ENABLE_DEADLOCK_DETECT, is_enable as usize) }
+}
+
+/// 记录系统调用。
+#[inline]
+pub fn trace(trace_request: usize, id: usize, data: usize) -> isize {
+    // SAFETY: 系统调用参数是简单的整数值
+    unsafe { syscall3(SyscallId::TRACE, trace_request, id, data) }
+}
+
+/// 映射内存。
+#[inline]
+pub fn mmap(start: usize, len: usize, prot: usize) -> isize {
+    // SAFETY: 系统调用参数是简单的整数值
+    unsafe { syscall6(SyscallId::MMAP, start, len, prot, 0, 0, 0) }
+}
+
+/// 取消内存映射。
+#[inline]
+pub fn munmap(start: usize, len: usize) -> isize {
+    // SAFETY: 系统调用参数是简单的整数值
+    unsafe { syscall2(SyscallId::MUNMAP, start, len) }
 }
 
 /// 这个模块包含调用系统调用的最小封装，用户可以直接使用这些函数调用自定义的系统调用。

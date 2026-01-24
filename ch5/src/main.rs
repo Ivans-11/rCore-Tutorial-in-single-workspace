@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-// #![deny(warnings)]
 
 mod process;
 mod processor;
@@ -11,12 +10,11 @@ extern crate tg_console;
 extern crate alloc;
 
 use alloc::{alloc::alloc, collections::BTreeMap};
-use core::{alloc::Layout, ffi::CStr, mem::MaybeUninit};
+use core::{alloc::Layout, cell::UnsafeCell, ffi::CStr, mem::MaybeUninit};
 use impls::{Console, Sv39Manager, SyscallContext};
 use process::Process;
 use processor::{ProcManager, PROCESSOR};
 use riscv::register::*;
-use sbi_rt::*;
 use spin::Lazy;
 use tg_console::log;
 use tg_kernel_context::foreign::MultislotPortal;
@@ -24,8 +22,9 @@ use tg_kernel_vm::{
     page_table::{MmuMeta, Sv39, VAddr, VmFlags, VmMeta, PPN, VPN},
     AddressSpace,
 };
+use tg_sbi;
 use tg_syscall::Caller;
-use tg_task_manage::ProcId;
+use tg_task_manage::{PManager, ProcId};
 use xmas_elf::ElfFile;
 
 // 应用程序内联进来。
@@ -37,7 +36,29 @@ const MEMORY: usize = 48 << 20;
 // 传送门所在虚页。
 const PROTAL_TRANSIT: VPN<Sv39> = VPN::MAX;
 // 内核地址空间。
-static mut KERNEL_SPACE: MaybeUninit<AddressSpace<Sv39, Sv39Manager>> = MaybeUninit::uninit();
+struct KernelSpace {
+    inner: UnsafeCell<MaybeUninit<AddressSpace<Sv39, Sv39Manager>>>,
+}
+
+unsafe impl Sync for KernelSpace {}
+
+impl KernelSpace {
+    const fn new() -> Self {
+        Self {
+            inner: UnsafeCell::new(MaybeUninit::uninit()),
+        }
+    }
+
+    unsafe fn write(&self, space: AddressSpace<Sv39, Sv39Manager>) {
+        *self.inner.get() = MaybeUninit::new(space);
+    }
+
+    unsafe fn assume_init_ref(&self) -> &AddressSpace<Sv39, Sv39Manager> {
+        &*(*self.inner.get()).as_ptr()
+    }
+}
+
+static KERNEL_SPACE: KernelSpace = KernelSpace::new();
 /// 加载用户进程。
 static APPS: Lazy<BTreeMap<&'static str, &'static [u8]>> = Lazy::new(|| {
     extern "C" {
@@ -85,16 +106,18 @@ extern "C" fn rust_main() -> ! {
     tg_syscall::init_process(&SyscallContext);
     tg_syscall::init_scheduling(&SyscallContext);
     tg_syscall::init_clock(&SyscallContext);
+    tg_syscall::init_memory(&SyscallContext);
     // 加载初始进程
     let initproc_data = APPS.get("initproc").unwrap();
     if let Some(process) = Process::from_elf(ElfFile::new(initproc_data).unwrap()) {
-        unsafe {
-            PROCESSOR.set_manager(ProcManager::new());
-            PROCESSOR.add(process.pid, process, ProcId::from_usize(usize::MAX));
-        }
+        PROCESSOR.get_mut().set_manager(ProcManager::new());
+        PROCESSOR
+            .get_mut()
+            .add(process.pid, process, ProcId::from_usize(usize::MAX));
     }
     loop {
-        if let Some(task) = unsafe { PROCESSOR.find_next() } {
+        let processor: *mut PManager<Process, ProcManager> = PROCESSOR.get_mut() as *mut _;
+        if let Some(task) = unsafe { (*processor).find_next() } {
             unsafe { task.context.execute(portal, ()) };
             match scause::read().cause() {
                 scause::Trap::Exception(scause::Exception::UserEnvCall) => {
@@ -105,22 +128,22 @@ extern "C" fn rust_main() -> ! {
                     let args = [ctx.a(0), ctx.a(1), ctx.a(2), ctx.a(3), ctx.a(4), ctx.a(5)];
                     match tg_syscall::handle(Caller { entity: 0, flow: 0 }, id, args) {
                         Ret::Done(ret) => match id {
-                            Id::EXIT => unsafe { PROCESSOR.make_current_exited(ret) },
+                            Id::EXIT => unsafe { (*processor).make_current_exited(ret) },
                             _ => {
                                 let ctx = &mut task.context.context;
                                 *ctx.a_mut(0) = ret as _;
-                                unsafe { PROCESSOR.make_current_suspend() };
+                                unsafe { (*processor).make_current_suspend() };
                             }
                         },
                         Ret::Unsupported(_) => {
                             log::info!("id = {id:?}");
-                            unsafe { PROCESSOR.make_current_exited(-2) };
+                            unsafe { (*processor).make_current_exited(-2) };
                         }
                     }
                 }
                 e => {
                     log::error!("unsupported trap: {e:?}");
-                    unsafe { PROCESSOR.make_current_exited(-3) };
+                    unsafe { (*processor).make_current_exited(-3) };
                 }
             }
         } else {
@@ -128,16 +151,14 @@ extern "C" fn rust_main() -> ! {
             break;
         }
     }
-    system_reset(Shutdown, NoReason);
-    unreachable!()
+    tg_sbi::shutdown(false)
 }
 
 /// Rust 异常处理函数，以异常方式关机。
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     println!("{info}");
-    system_reset(Shutdown, SystemFailure);
-    loop {}
+    tg_sbi::shutdown(true)
 }
 
 fn kernel_space(layout: tg_linker::KernelLayout, memory: usize, portal: usize) {
@@ -173,7 +194,7 @@ fn kernel_space(layout: tg_linker::KernelLayout, memory: usize, portal: usize) {
     );
     println!();
     unsafe { satp::set(satp::Mode::Sv39, 0, space.root_ppn().val()) };
-    unsafe { KERNEL_SPACE = MaybeUninit::new(space) };
+    unsafe { KERNEL_SPACE.write(space) };
 }
 
 /// 映射异界传送门。
@@ -184,7 +205,7 @@ fn map_portal(space: &AddressSpace<Sv39, Sv39Manager>) {
 
 /// 各种接口库的实现。
 mod impls {
-    use crate::{APPS, PROCESSOR};
+    use crate::{process::Process as ProcStruct, processor::ProcManager, APPS, PROCESSOR};
     use alloc::alloc::alloc_zeroed;
     use core::{alloc::Layout, ptr::NonNull};
     use tg_console::log;
@@ -193,7 +214,7 @@ mod impls {
         PageManager,
     };
     use tg_syscall::*;
-    use tg_task_manage::ProcId;
+    use tg_task_manage::{PManager, ProcId};
     use xmas_elf::ElfFile;
 
     #[repr(transparent)]
@@ -265,8 +286,7 @@ mod impls {
     impl tg_console::Console for Console {
         #[inline]
         fn put_char(&self, c: u8) {
-            #[allow(deprecated)]
-            sbi_rt::legacy::console_putchar(c as _);
+            tg_sbi::console_putchar(c);
         }
     }
 
@@ -277,7 +297,9 @@ mod impls {
             match fd {
                 STDOUT | STDDEBUG => {
                     const READABLE: VmFlags<Sv39> = VmFlags::build_from_str("RV");
-                    if let Some(ptr) = unsafe { PROCESSOR.current() }
+                    if let Some(ptr) = PROCESSOR
+                        .get_mut()
+                        .current()
                         .unwrap()
                         .address_space
                         .translate(VAddr::new(buf), READABLE)
@@ -305,14 +327,16 @@ mod impls {
         fn read(&self, _caller: Caller, fd: usize, buf: usize, count: usize) -> isize {
             if fd == STDIN {
                 const WRITEABLE: VmFlags<Sv39> = VmFlags::build_from_str("W_V");
-                if let Some(mut ptr) = unsafe { PROCESSOR.current().unwrap() }
+                if let Some(mut ptr) = PROCESSOR
+                    .get_mut()
+                    .current()
+                    .unwrap()
                     .address_space
                     .translate(VAddr::new(buf), WRITEABLE)
                 {
                     let mut ptr = unsafe { ptr.as_mut() } as *mut u8;
                     for _ in 0..count {
-                        #[allow(deprecated)]
-                        let c = sbi_rt::legacy::console_getchar() as u8;
+                        let c = tg_sbi::console_getchar() as u8;
                         unsafe {
                             *ptr = c;
                             ptr = ptr.add(1);
@@ -337,21 +361,20 @@ mod impls {
         }
 
         fn fork(&self, _caller: Caller) -> isize {
-            let current = unsafe { PROCESSOR.current().unwrap() };
+            let processor: *mut PManager<ProcStruct, ProcManager> = PROCESSOR.get_mut() as *mut _;
+            let current = unsafe { (*processor).current().unwrap() };
             let parent_pid = current.pid; // 先保存父进程 pid
             let mut child_proc = current.fork().unwrap();
             let pid = child_proc.pid;
             let context = &mut child_proc.context.context;
             *context.a_mut(0) = 0 as _;
-            unsafe {
-                PROCESSOR.add(pid, child_proc, parent_pid);
-            }
+            unsafe { (*processor).add(pid, child_proc, parent_pid) };
             pid.get_usize() as isize
         }
 
         fn exec(&self, _caller: Caller, path: usize, count: usize) -> isize {
             const READABLE: VmFlags<Sv39> = VmFlags::build_from_str("RV");
-            let current = unsafe { PROCESSOR.current().unwrap() };
+            let current = PROCESSOR.get_mut().current().unwrap();
             current
                 .address_space
                 .translate(VAddr::new(path), READABLE)
@@ -375,18 +398,19 @@ mod impls {
         }
 
         fn wait(&self, _caller: Caller, pid: isize, exit_code_ptr: usize) -> isize {
-            let current = unsafe { PROCESSOR.current().unwrap() };
+            let processor: *mut PManager<ProcStruct, ProcManager> = PROCESSOR.get_mut() as *mut _;
+            let current = unsafe { (*processor).current().unwrap() };
             const WRITABLE: VmFlags<Sv39> = VmFlags::build_from_str("W_V");
             if let Some((dead_pid, exit_code)) =
-                unsafe { PROCESSOR.wait(ProcId::from_usize(pid as usize)) }
+                unsafe { (*processor).wait(ProcId::from_usize(pid as usize)) }
             {
                 if let Some(mut ptr) = current
                     .address_space
-                    .translate(VAddr::new(exit_code_ptr), WRITABLE)
+                    .translate::<i32>(VAddr::new(exit_code_ptr), WRITABLE)
                 {
-                    unsafe { *ptr.as_mut() = exit_code };
+                    unsafe { *ptr.as_mut() = exit_code as i32 };
                 }
-                return dead_pid.get_usize() as _;
+                return dead_pid.get_usize() as isize;
             } else {
                 // 等待的子进程不存在
                 return -1;
@@ -394,8 +418,18 @@ mod impls {
         }
 
         fn getpid(&self, _caller: Caller) -> isize {
-            let current = unsafe { PROCESSOR.current().unwrap() };
+            let current = PROCESSOR.get_mut().current().unwrap();
             current.pid.get_usize() as _
+        }
+
+        // TODO: 实现 spawn 系统调用
+        fn spawn(&self, _caller: Caller, _path: usize, _count: usize) -> isize {
+            let current = PROCESSOR.get_mut().current().unwrap();
+            tg_console::log::info!(
+                "spawn: parent pid = {}, not implemented",
+                current.pid.get_usize()
+            );
+            -1
         }
     }
 
@@ -403,6 +437,17 @@ mod impls {
         #[inline]
         fn sched_yield(&self, _caller: Caller) -> isize {
             0
+        }
+
+        // TODO: 实现 set_priority 系统调用
+        fn set_priority(&self, _caller: Caller, prio: isize) -> isize {
+            let current = PROCESSOR.get_mut().current().unwrap();
+            tg_console::log::info!(
+                "set_priority: pid = {}, prio = {}, not implemented",
+                current.pid.get_usize(),
+                prio
+            );
+            -1
         }
     }
 
@@ -412,7 +457,10 @@ mod impls {
             const WRITABLE: VmFlags<Sv39> = VmFlags::build_from_str("W_V");
             match clock_id {
                 ClockId::CLOCK_MONOTONIC => {
-                    if let Some(mut ptr) = unsafe { PROCESSOR.current().unwrap() }
+                    if let Some(mut ptr) = PROCESSOR
+                        .get_mut()
+                        .current()
+                        .unwrap()
                         .address_space
                         .translate(VAddr::new(tp), WRITABLE)
                     {
@@ -429,6 +477,31 @@ mod impls {
                 }
                 _ => -1,
             }
+        }
+    }
+
+    impl Memory for SyscallContext {
+        // TODO: 实现 mmap 系统调用
+        fn mmap(
+            &self,
+            _caller: Caller,
+            addr: usize,
+            len: usize,
+            prot: i32,
+            _flags: i32,
+            _fd: i32,
+            _offset: usize,
+        ) -> isize {
+            tg_console::log::info!(
+                "mmap: addr = {addr:#x}, len = {len}, prot = {prot}, not implemented"
+            );
+            -1
+        }
+
+        // TODO: 实现 munmap 系统调用
+        fn munmap(&self, _caller: Caller, addr: usize, len: usize) -> isize {
+            tg_console::log::info!("munmap: addr = {addr:#x}, len = {len}, not implemented");
+            -1
         }
     }
 }

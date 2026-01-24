@@ -7,9 +7,9 @@ extern crate tg_console;
 
 use impls::{Console, SyscallContext};
 use riscv::register::*;
-use sbi_rt::*;
 use tg_console::log;
 use tg_kernel_context::LocalContext;
+use tg_sbi;
 use tg_syscall::{Caller, SyscallId};
 
 // 用户程序内联进来。
@@ -61,16 +61,14 @@ extern "C" fn rust_main() -> ! {
         println!();
     }
 
-    system_reset(Shutdown, NoReason);
-    unreachable!()
+    tg_sbi::shutdown(false)
 }
 
 /// Rust 异常处理函数，以异常方式关机。
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     println!("{info}");
-    system_reset(Shutdown, SystemFailure);
-    loop {}
+    tg_sbi::shutdown(true)
 }
 
 enum SyscallResult {
@@ -107,8 +105,7 @@ mod impls {
     impl tg_console::Console for Console {
         #[inline]
         fn put_char(&self, c: u8) {
-            #[allow(deprecated)]
-            sbi_rt::legacy::console_putchar(c as _);
+            tg_sbi::console_putchar(c);
         }
     }
 
