@@ -72,7 +72,7 @@ pub extern "C" fn main() -> i32 {
     for i in 0..N {
         assert_eq!(mutex_create(true), i as isize);
         v.push(thread_create(
-            philosopher_dining_problem as usize,
+            philosopher_dining_problem as *const () as usize,
             &ids.as_slice()[i] as *const _ as usize,
         ));
     }

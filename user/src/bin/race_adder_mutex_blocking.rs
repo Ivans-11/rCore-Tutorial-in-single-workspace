@@ -36,7 +36,7 @@ pub extern "C" fn main() -> i32 {
     assert_eq!(mutex_create(true), 0);
     let mut v = Vec::new();
     for _ in 0..THREAD_COUNT {
-        v.push(thread_create(f as usize, 0) as usize);
+        v.push(thread_create(f as *const () as usize, 0) as usize);
     }
     let mut time_cost = Vec::new();
     for tid in v.iter() {

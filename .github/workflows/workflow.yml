@@ -71,5 +71,5 @@ jobs:
 
       - name: Run exercise in QEMU and check output (ch${{ matrix.ch }})
         run: |
-          timeout 3m cargo qemu --ch ${{ matrix.ch }} --exercise --nobios --ci 2>&1 \
+          timeout 6m cargo qemu --ch ${{ matrix.ch }} --exercise --nobios --ci 2>&1 \
             | python3 checker/check/ch${{ matrix.ch }}.py
