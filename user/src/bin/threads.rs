@@ -31,7 +31,6 @@ pub fn thread_c() -> isize {
 
 #[no_mangle]
 pub extern "C" fn main() -> i32 {
-    println!("threads test========");
     let mut v = vec![
         thread_create(thread_a as usize, 0),
         thread_create(thread_b as usize, 0),
@@ -51,6 +50,6 @@ pub extern "C" fn main() -> i32 {
         println!("thread#{} exited with code {}", tid, exit_code);
     }
     println!("main thread exited.");
-    println!("==========================v size: {:?}", v);
+    println!("threads test passed!");
     0
 }
