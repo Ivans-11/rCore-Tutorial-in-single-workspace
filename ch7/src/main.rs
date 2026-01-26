@@ -503,6 +503,15 @@ mod impls {
             let current = PROCESSOR.get_mut().current().unwrap();
             current.pid.get_usize() as _
         }
+
+        fn sbrk(&self, _caller: Caller, size: i32) -> isize {
+            let current = PROCESSOR.get_mut().current().unwrap();
+            if let Some(old_brk) = current.change_program_brk(size as isize) {
+                old_brk as isize
+            } else {
+                -1
+            }
+        }
     }
 
     impl Scheduling for SyscallContext {
