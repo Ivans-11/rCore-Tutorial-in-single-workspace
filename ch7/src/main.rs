@@ -434,9 +434,7 @@ mod impls {
             let current = PROCESSOR.get_mut().current().unwrap();
             let (read_end, write_end) = make_pipe();
             let read_fd = current.fd_table.len();
-            current.fd_table.push(Some(Mutex::new(read_end)));
-            let write_fd = current.fd_table.len();
-            current.fd_table.push(Some(Mutex::new(write_end)));
+            let write_fd = read_fd + 1;
             // 将 read_fd 写入 pipe[0]
             if let Some(mut ptr) = current
                 .address_space
@@ -455,6 +453,9 @@ mod impls {
             } else {
                 return -1;
             }
+            // 最后添加，避免中途写入异常导致浪费一个 fd
+            current.fd_table.push(Some(Mutex::new(read_end)));
+            current.fd_table.push(Some(Mutex::new(write_end)));
             0
         }
     }

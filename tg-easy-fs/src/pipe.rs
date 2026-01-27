@@ -17,14 +17,6 @@ enum RingBufferStatus {
     Normal,
 }
 
-/// 缓冲区快照，用于恢复状态
-#[derive(Copy, Clone)]
-pub struct BufferSnapshot {
-    head: usize,
-    tail: usize,
-    status: RingBufferStatus,
-}
-
 /// 管道环形缓冲区
 pub struct PipeRingBuffer {
     arr: [u8; RING_BUFFER_SIZE],
@@ -95,22 +87,6 @@ impl PipeRingBuffer {
     /// 所有写端是否都已关闭
     pub fn all_write_ends_closed(&self) -> bool {
         self.write_end.as_ref().unwrap().upgrade().is_none()
-    }
-
-    /// 保存当前状态快照
-    pub fn save_state(&self) -> BufferSnapshot {
-        BufferSnapshot {
-            head: self.head,
-            tail: self.tail,
-            status: self.status,
-        }
-    }
-
-    /// 恢复到之前的状态
-    pub fn restore_state(&mut self, snapshot: BufferSnapshot) {
-        self.head = snapshot.head;
-        self.tail = snapshot.tail;
-        self.status = snapshot.status;
     }
 }
 
