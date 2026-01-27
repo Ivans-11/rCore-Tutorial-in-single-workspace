@@ -328,6 +328,12 @@ pub fn munmap(start: usize, len: usize) -> isize {
     unsafe { syscall2(SyscallId::MUNMAP, start, len) }
 }
 
+/// 创建管道
+#[inline]
+pub fn pipe(pipe_fd: &mut [usize]) -> isize {
+    unsafe { syscall1(SyscallId::PIPE2, pipe_fd.as_mut_ptr() as _) }
+}
+
 /// 这个模块包含调用系统调用的最小封装，用户可以直接使用这些函数调用自定义的系统调用。
 ///
 /// # Safety

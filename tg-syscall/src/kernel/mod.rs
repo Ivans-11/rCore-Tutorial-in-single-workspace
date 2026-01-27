@@ -62,6 +62,9 @@ pub trait IO: Sync {
     ) -> isize {
         unimplemented!()
     }
+    fn pipe(&self, caller: Caller, pipe: usize) -> isize {
+        unimplemented!()
+    }
     fn unlinkat(&self, caller: Caller, dirfd: i32, path: usize, flags: u32) -> isize {
         unimplemented!()
     }
@@ -311,6 +314,7 @@ pub fn handle(caller: Caller, id: SyscallId, args: [usize; 6]) -> SyscallResult 
         Id::SPAWN => PROCESS.call(id, |proc| proc.spawn(caller, args[0], args[1])),
         Id::SETPRIORITY => SCHEDULING.call(id, |sched| sched.set_priority(caller, args[0] as _)),
         Id::BRK => PROCESS.call(id, |proc| proc.sbrk(caller, args[0] as _)),
+        Id::PIPE2 => IO.call(id, |io| io.pipe(caller, args[0])),
         _ => SyscallResult::Unsupported(id),
     }
 }

@@ -324,7 +324,7 @@ mod impls {
                     });
                     count as _
                 } else if let Some(file) = &current.fd_table[fd] {
-                    let mut file = file.lock();
+                    let file = file.lock();
                     if file.writable() {
                         let mut v: Vec<&'static mut [u8]> = Vec::new();
                         unsafe { v.push(core::slice::from_raw_parts_mut(ptr.as_ptr(), count)) };
@@ -356,7 +356,7 @@ mod impls {
                     }
                     count as _
                 } else if let Some(file) = &current.fd_table[fd] {
-                    let mut file = file.lock();
+                    let file = file.lock();
                     if file.readable() {
                         let mut v: Vec<&'static mut [u8]> = Vec::new();
                         unsafe { v.push(core::slice::from_raw_parts_mut(ptr.as_ptr(), count)) };
