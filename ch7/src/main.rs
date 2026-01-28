@@ -228,7 +228,7 @@ fn map_portal(space: &AddressSpace<Sv39, Sv39Manager>) {
 /// 各种接口库的实现。
 mod impls {
     use crate::{
-        fs::{read_all, FS},
+        fs::{read_all, Fd, FS},
         process::Process as ProcStruct,
         processor::ProcManager,
         PROCESSOR,
@@ -389,7 +389,6 @@ mod impls {
         }
 
         fn open(&self, _caller: Caller, path: usize, flags: usize) -> isize {
-            // FS.open(, flags)
             let current = PROCESSOR.get_mut().current().unwrap();
             if let Some(ptr) = current.address_space.translate(VAddr::new(path), READABLE) {
                 let mut string = String::new();
@@ -405,11 +404,14 @@ mod impls {
                     }
                 }
 
-                if let Some(fd) =
+                if let Some(file_handle) =
                     FS.open(string.as_str(), OpenFlags::from_bits(flags as u32).unwrap())
                 {
                     let new_fd = current.fd_table.len();
-                    current.fd_table.push(Some(Mutex::new(fd)));
+                    // Arc<FileHandle> -> FileHandle，需要解引用
+                    current
+                        .fd_table
+                        .push(Some(Mutex::new(Fd::File((*file_handle).clone()))));
                     new_fd as isize
                 } else {
                     -1
@@ -454,8 +456,12 @@ mod impls {
                 return -1;
             }
             // 最后添加，避免中途写入异常导致浪费一个 fd
-            current.fd_table.push(Some(Mutex::new(read_end)));
-            current.fd_table.push(Some(Mutex::new(write_end)));
+            current
+                .fd_table
+                .push(Some(Mutex::new(Fd::PipeRead(read_end))));
+            current
+                .fd_table
+                .push(Some(Mutex::new(Fd::PipeWrite(write_end))));
             0
         }
     }

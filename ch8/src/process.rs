@@ -1,8 +1,7 @@
-use crate::{map_portal, processor::ProcessorInner, Sv39Manager, PROCESSOR};
+use crate::{fs::Fd, map_portal, processor::ProcessorInner, Sv39Manager, PROCESSOR};
 use alloc::{alloc::alloc_zeroed, boxed::Box, sync::Arc, vec::Vec};
 use core::{alloc::Layout, str::FromStr};
 use spin::Mutex;
-use tg_easy_fs::FileHandle;
 use tg_kernel_context::{foreign::ForeignContext, LocalContext};
 use tg_kernel_vm::{
     page_table::{MmuMeta, Sv39, VAddr, VmFlags, PPN, VPN},
@@ -41,7 +40,7 @@ pub struct Process {
     /// 可变
     pub address_space: AddressSpace<Sv39, Sv39Manager>,
     /// 文件描述符表
-    pub fd_table: Vec<Option<Mutex<Arc<FileHandle>>>>,
+    pub fd_table: Vec<Option<Mutex<Fd>>>,
     /// 信号模块
     pub signal: Box<dyn Signal>,
     /// 分配的锁以及信号量
@@ -84,14 +83,11 @@ impl Process {
         let satp = (8 << 60) | address_space.root_ppn().val();
         let thread = Thread::new(satp, context);
         // 复制父进程文件符描述表
-        let mut new_fd_table: Vec<Option<Mutex<Arc<FileHandle>>>> = Vec::new();
-        for fd in self.fd_table.iter_mut() {
-            if let Some(file) = fd {
-                new_fd_table.push(Some(Mutex::new(file.get_mut().clone())));
-            } else {
-                new_fd_table.push(None);
-            }
-        }
+        let new_fd_table: Vec<Option<Mutex<Fd>>> = self
+            .fd_table
+            .iter()
+            .map(|fd| fd.as_ref().map(|f| Mutex::new(f.lock().clone())))
+            .collect();
         Some((
             Self {
                 pid,
@@ -174,11 +170,20 @@ impl Process {
                 address_space,
                 fd_table: vec![
                     // Stdin
-                    Some(Mutex::new(Arc::new(FileHandle::empty(true, false)))),
+                    Some(Mutex::new(Fd::Empty {
+                        read: true,
+                        write: false,
+                    })),
                     // Stdout
-                    Some(Mutex::new(Arc::new(FileHandle::empty(false, true)))),
+                    Some(Mutex::new(Fd::Empty {
+                        read: false,
+                        write: true,
+                    })),
                     // Stderr
-                    Some(Mutex::new(Arc::new(FileHandle::empty(false, true)))),
+                    Some(Mutex::new(Fd::Empty {
+                        read: false,
+                        write: true,
+                    })),
                 ],
                 signal: Box::new(SignalImpl::new()),
                 semaphore_list: Vec::new(),
