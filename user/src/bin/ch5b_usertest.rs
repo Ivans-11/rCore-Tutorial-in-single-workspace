@@ -12,10 +12,10 @@ const TESTS: &[&str] = &[
     "08power_3",
     "09power_5",
     "10power_7",
-    "sbrk",
     "fork_exit",
     "forktest_simple",
     "12forktest",
+    "sbrk",
 ];
 
 const TEST_NUM: usize = TESTS.len();
