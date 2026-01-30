@@ -123,7 +123,7 @@ extern "C" fn rust_main() -> ! {
         build_flags("_WRV"),
     );
     // 建立调度线程，目的是划分异常域。调度线程上发生内核异常时会回到这个控制流处理
-    let mut scheduling = LocalContext::thread(schedule as _, false);
+    let mut scheduling = LocalContext::thread(schedule as *const () as  _, false);
     *scheduling.sp_mut() = 1 << 38;
     unsafe { scheduling.execute() };
     log::error!("stval = {:#x}", stval::read());

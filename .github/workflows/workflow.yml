@@ -71,7 +71,8 @@ jobs:
           failed=0
           for ch in 2 3 4 5 6 7 8; do
             echo "========== Testing ch${ch} base =========="
-            if timeout 6m cargo qemu --ch ${ch} --nobios --ci ; then
+            if timeout 6m cargo qemu --ch ${ch} --nobios --ci 2>&1 \
+                | python3 checker/check/ch${ch}b.py; then
               echo "ch${ch} PASSED"
             else
               echo "ch${ch} FAILED"
