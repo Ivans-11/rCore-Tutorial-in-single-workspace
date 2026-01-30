@@ -18,6 +18,12 @@ nobios = [
     "tg-sbi/nobios",
 ]
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
 virtio-drivers = "0.1.0"
 xmas-elf = "0.8.0"

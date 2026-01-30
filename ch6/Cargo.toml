@@ -18,8 +18,13 @@ nobios = [
     "tg-sbi/nobios",
 ]
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
-#virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "4ee80e5" }
 virtio-drivers = "0.1.0"
 xmas-elf = "0.8.0"
 riscv = "0.10.1"

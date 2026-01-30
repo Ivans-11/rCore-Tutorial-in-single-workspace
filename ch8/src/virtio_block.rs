@@ -1,4 +1,4 @@
-use crate::KERNEL_SPACE;
+use crate::{build_flags, Sv39, KERNEL_SPACE};
 use alloc::{
     alloc::{alloc_zeroed, dealloc},
     sync::Arc,
@@ -6,7 +6,7 @@ use alloc::{
 use core::{alloc::Layout, ptr::NonNull};
 use spin::{Lazy, Mutex};
 use tg_easy_fs::BlockDevice;
-use tg_kernel_vm::page_table::{MmuMeta, Sv39, VAddr, VmFlags};
+use tg_kernel_vm::page_table::{MmuMeta, VAddr, VmFlags};
 use virtio_drivers::{Hal, MmioTransport, VirtIOBlk, VirtIOHeader};
 
 const VIRTIO0: usize = 0x10001000;
@@ -75,7 +75,7 @@ impl Hal for VirtioHal {
 
     fn virt_to_phys(vaddr: usize) -> usize {
         // warn!("v2p");
-        const VALID: VmFlags<Sv39> = VmFlags::build_from_str("__V");
+        const VALID: VmFlags<Sv39> = build_flags("__V");
         let ptr: NonNull<u8> = unsafe {
             KERNEL_SPACE
                 .assume_init_ref()

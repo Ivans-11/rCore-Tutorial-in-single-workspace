@@ -18,5 +18,11 @@ nobios = [
     "tg-sbi/nobios",
 ]
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
 tg-sbi = { path = "../tg-sbi", version = "0.1.0-preview.1" }
