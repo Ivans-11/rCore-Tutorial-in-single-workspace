@@ -21,9 +21,6 @@ nobios = [
 [profile.dev]
 panic = "abort"
 
-[profile.release]
-panic = "abort"
-
 [dependencies]
 xmas-elf = "0.8.0"
 riscv = "0.10.1"
